@@ -5,6 +5,7 @@ Local analytics and sync tool for ngeShare platform data analysis.
 ## Prerequisites
 
 - Docker and Docker Compose
+- Node.js 18+ (for sync scripts)
 - Bash shell (Linux, macOS, or WSL on Windows)
 
 ## Quick Start
@@ -36,6 +37,22 @@ This will:
 
 This will validate that all required tables and indexes exist.
 
+### 4. Configure Environment
+
+```bash
+cp .env.example .env
+# Edit .env with your production database credentials
+```
+
+### 5. Run Data Sync
+
+```bash
+npm install   # First time only
+npm run sync  # Sync data from production to local
+```
+
+This will sync tables in FK dependency order: User → Hangout → HangoutEpisode → HangoutGroup → UserHangoutGroup.
+
 ## Database Configuration
 
 The local database uses the following default configuration (defined in `docker-compose.yml`):
@@ -63,11 +80,18 @@ export DB_PASSWORD=ngeshare_local_password
 ├── docker-compose.yml          # PostgreSQL container configuration
 ├── schema.sql                  # Database schema definition
 ├── migrate.sh                  # Schema migration script
-├── verify-schema.sh           # Schema validation script
-├── new-plan.md                # Implementation plan
-├── context.md                 # Project context
-└── ADR/                       # Architecture Decision Records
-    ├── 001-js-postgre.md      # Technology stack decision
+├── verify-schema.sh            # Schema validation script
+├── package.json                # Node.js dependencies
+├── .env.example                # Environment variable template
+├── src/                        # Sync script source code
+│   ├── index.js                # Main entry point
+│   ├── config/database.js      # Database configurations
+│   ├── db/                     # Connection pool management
+│   └── sync/                   # Sync logic (incremental UPSERT)
+├── new-plan.md                 # Implementation plan
+├── context.md                  # Project context
+└── ADR/                        # Architecture Decision Records
+    ├── 001-js-postgre.md       # Technology stack decision
     └── 002-schema-migration-script.md  # Migration approach decision
 ```
 
@@ -99,7 +123,8 @@ See `new-plan.md` for the full implementation plan. The current status:
 - ✅ Phase 1.1: Local DB Setup (docker-compose.yml)
 - ✅ Phase 1.1: Schema definition (schema.sql)
 - ✅ Phase 1.1: Schema migration (migrate.sh)
-- ⏭️ Phase 1.2: Base Sync Script (next step)
+- ✅ Phase 1.2: Base Sync Script (src/)
+- ⏭️ Phase 1.3: Attendance Sync (window sync)
 
 ## Architecture Decisions
 

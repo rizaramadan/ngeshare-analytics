@@ -248,3 +248,5 @@ vendor/
 
 # Lock files you may want to keep: do NOT ignore package-lock.json or yarn.lock unless desired
 # End of file
+
+.claude

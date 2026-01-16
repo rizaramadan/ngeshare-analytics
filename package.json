@@ -1,0 +1,18 @@
+{
+  "name": "ngeshare-analytics-sync",
+  "version": "1.0.0",
+  "description": "Data sync scripts for ngeShare Analytics",
+  "main": "src/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "sync": "node src/index.js",
+    "sync:debug": "DEBUG=true node src/index.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.0",
+    "dotenv": "^16.4.0"
+  }
+}
