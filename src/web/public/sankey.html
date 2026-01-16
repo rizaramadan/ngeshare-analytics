@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Member Flow - ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/funnel.html">Funnel</a>
+      <a href="/sankey.html" class="active">Member Flow</a>
+      <a href="/rescue.html">Rescue List</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Member Flow Through Curriculum</h2>
+      <p>Sankey diagram showing individual member progression from Aqidah to Dakwah</p>
+    </div>
+
+    <!-- Date Range Filter -->
+    <div class="date-range-filter">
+      <div class="date-inputs">
+        <div class="date-input-group">
+          <label for="dateFrom">From:</label>
+          <input type="date" id="dateFrom" />
+        </div>
+        <div class="date-input-group">
+          <label for="dateTo">To:</label>
+          <input type="date" id="dateTo" />
+        </div>
+        <button class="btn btn-primary" onclick="applyDateFilter()">Apply Filter</button>
+        <button class="btn btn-secondary" onclick="clearDateFilter()">Clear</button>
+      </div>
+      <div class="date-range-info" id="dateRangeInfo"></div>
+    </div>
+
+    <!-- Progression Stats -->
+    <div class="funnel-metrics" id="progressionStats">
+      <div class="loading">Loading progression statistics...</div>
+    </div>
+
+    <!-- Sankey Diagram -->
+    <div class="chart-container">
+      <h3>Member Progression Flow</h3>
+      <div id="sankeyChart" style="width: 100%; height: 600px;">
+        <div class="loading">Loading member flow diagram...</div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend-container">
+      <h4>How to Read This Diagram</h4>
+      <ul>
+        <li><strong>Nodes:</strong> Represent stages in the curriculum (Aqidah, Hijrah, Sejarah, Dakwah) and outcomes (Completed, Dropped)</li>
+        <li><strong>Links:</strong> Width represents the number of members flowing from one stage to another</li>
+        <li><strong>Color:</strong> Different colors distinguish between progression paths and drop-off points</li>
+        <li><strong>Hover:</strong> Mouse over links to see exact member counts</li>
+      </ul>
+    </div>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let currentDateFrom = null;
+    let currentDateTo = null;
+
+    // Apply date filter
+    function applyDateFilter() {
+      const dateFrom = document.getElementById('dateFrom').value;
+      const dateTo = document.getElementById('dateTo').value;
+
+      currentDateFrom = dateFrom || null;
+      currentDateTo = dateTo || null;
+
+      updateDateRangeInfo();
+      loadAllData();
+    }
+
+    // Clear date filter
+    function clearDateFilter() {
+      document.getElementById('dateFrom').value = '';
+      document.getElementById('dateTo').value = '';
+      currentDateFrom = null;
+      currentDateTo = null;
+
+      updateDateRangeInfo();
+      loadAllData();
+    }
+
+    // Update date range info display
+    function updateDateRangeInfo() {
+      const info = document.getElementById('dateRangeInfo');
+      if (currentDateFrom || currentDateTo) {
+        const fromText = currentDateFrom ? formatDate(currentDateFrom) : 'Beginning';
+        const toText = currentDateTo ? formatDate(currentDateTo) : 'Now';
+        info.innerHTML = `<strong>Filtered:</strong> ${fromText} to ${toText}`;
+        info.style.display = 'block';
+      } else {
+        info.style.display = 'none';
+      }
+    }
+
+    // Build query string for date filters
+    function getDateQueryString() {
+      const params = new URLSearchParams();
+      if (currentDateFrom) params.append('dateFrom', currentDateFrom);
+      if (currentDateTo) params.append('dateTo', currentDateTo);
+      return params.toString() ? `?${params.toString()}` : '';
+    }
+
+    // Load progression stats
+    async function loadProgressionStats() {
+      try {
+        const response = await fetch(`/api/sankey/stats${getDateQueryString()}`);
+        const stats = await response.json();
+
+        const html = `
+          <div class="metric-card metric-primary">
+            <div class="metric-label">Total Started (Aqidah)</div>
+            <div class="metric-value">${formatNumber(stats.total_started || 0)}</div>
+          </div>
+          <div class="metric-card metric-info">
+            <div class="metric-label">Reached Hijrah</div>
+            <div class="metric-value">${formatNumber(stats.reached_hijrah || 0)}</div>
+            <div class="metric-badge badge-${getRateClass(stats.aqidah_to_hijrah_pct)}">${stats.aqidah_to_hijrah_pct || 0}%</div>
+          </div>
+          <div class="metric-card metric-info">
+            <div class="metric-label">Reached Sejarah</div>
+            <div class="metric-value">${formatNumber(stats.reached_sejarah || 0)}</div>
+            <div class="metric-badge badge-${getRateClass(stats.hijrah_to_sejarah_pct)}">${stats.hijrah_to_sejarah_pct || 0}%</div>
+          </div>
+          <div class="metric-card metric-info">
+            <div class="metric-label">Reached Dakwah</div>
+            <div class="metric-value">${formatNumber(stats.reached_dakwah || 0)}</div>
+            <div class="metric-badge badge-${getRateClass(stats.sejarah_to_dakwah_pct)}">${stats.sejarah_to_dakwah_pct || 0}%</div>
+          </div>
+          <div class="metric-card metric-success">
+            <div class="metric-label">Completed All Stages</div>
+            <div class="metric-value">${formatNumber(stats.completed_all || 0)}</div>
+            <div class="metric-badge badge-${getRateClass(stats.overall_completion_pct)}">${stats.overall_completion_pct || 0}%</div>
+          </div>
+        `;
+
+        document.getElementById('progressionStats').innerHTML = html;
+      } catch (err) {
+        console.error('Error loading progression stats:', err);
+        document.getElementById('progressionStats').innerHTML = '<div class="error">Failed to load stats</div>';
+      }
+    }
+
+    // Get rate class for badge coloring
+    function getRateClass(rate) {
+      if (!rate) return 'neutral';
+      if (rate >= 70) return 'success';
+      if (rate >= 50) return 'medium';
+      return 'poor';
+    }
+
+    // Load and render Sankey diagram
+    async function loadSankeyDiagram() {
+      try {
+        const response = await fetch(`/api/sankey/flow${getDateQueryString()}`);
+        const flowData = await response.json();
+
+        // Transform API data into D3 Sankey format
+        const nodes = [];
+        const links = [];
+        const nodeMap = new Map();
+
+        // Helper to get or create node
+        function getNodeIndex(name) {
+          if (!nodeMap.has(name)) {
+            const index = nodes.length;
+            nodes.push({ name });
+            nodeMap.set(name, index);
+          }
+          return nodeMap.get(name);
+        }
+
+        // Build nodes and links from API data
+        flowData.forEach(flow => {
+          const sourceIndex = getNodeIndex(flow.source);
+          const targetIndex = getNodeIndex(flow.target);
+          links.push({
+            source: sourceIndex,
+            target: targetIndex,
+            value: flow.value
+          });
+        });
+
+        // Render Sankey
+        renderSankey({ nodes, links });
+
+      } catch (err) {
+        console.error('Error loading sankey data:', err);
+        document.getElementById('sankeyChart').innerHTML = '<div class="error">Failed to load member flow diagram</div>';
+      }
+    }
+
+    // Render Sankey diagram using D3
+    function renderSankey(data) {
+      // Clear existing chart
+      const container = document.getElementById('sankeyChart');
+      container.innerHTML = '';
+
+      // Set dimensions
+      const width = container.offsetWidth;
+      const height = 600;
+      const margin = { top: 20, right: 150, bottom: 20, left: 150 };
+
+      // Create SVG
+      const svg = d3.select('#sankeyChart')
+        .append('svg')
+        .attr('width', width)
+        .attr('height', height);
+
+      // Create Sankey generator
+      const sankey = d3.sankey()
+        .nodeWidth(20)
+        .nodePadding(20)
+        .extent([[margin.left, margin.top], [width - margin.right, height - margin.bottom]]);
+
+      // Generate Sankey layout
+      const { nodes, links } = sankey(data);
+
+      // Define color scale
+      const colorScale = d3.scaleOrdinal()
+        .domain(['Started Aqidah', 'Continued to Hijrah', 'Continued to Sejarah', 'Continued to Dakwah',
+                 'Dropped after Aqidah', 'Dropped after Hijrah', 'Dropped after Sejarah',
+                 'In Progress / Stopped', 'Completed All Stages'])
+        .range(['#4299e1', '#48bb78', '#ed8936', '#9f7aea',
+                '#fc8181', '#fc8181', '#fc8181',
+                '#fbd38d', '#38a169']);
+
+      // Draw links
+      svg.append('g')
+        .selectAll('path')
+        .data(links)
+        .enter()
+        .append('path')
+        .attr('d', d3.sankeyLinkHorizontal())
+        .attr('stroke', d => {
+          const sourceName = d.source.name;
+          const targetName = d.target.name;
+          if (targetName.includes('Dropped') || targetName.includes('Stopped')) {
+            return '#fc8181'; // Red for drop-offs
+          }
+          return colorScale(sourceName);
+        })
+        .attr('stroke-width', d => Math.max(1, d.width))
+        .attr('fill', 'none')
+        .attr('opacity', 0.5)
+        .append('title')
+        .text(d => `${d.source.name} → ${d.target.name}\n${formatNumber(d.value)} members`);
+
+      // Draw nodes
+      svg.append('g')
+        .selectAll('rect')
+        .data(nodes)
+        .enter()
+        .append('rect')
+        .attr('x', d => d.x0)
+        .attr('y', d => d.y0)
+        .attr('height', d => d.y1 - d.y0)
+        .attr('width', d => d.x1 - d.x0)
+        .attr('fill', d => colorScale(d.name))
+        .attr('opacity', 0.9)
+        .append('title')
+        .text(d => `${d.name}\n${formatNumber(d.value)} members`);
+
+      // Add node labels
+      svg.append('g')
+        .selectAll('text')
+        .data(nodes)
+        .enter()
+        .append('text')
+        .attr('x', d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+        .attr('y', d => (d.y1 + d.y0) / 2)
+        .attr('dy', '0.35em')
+        .attr('text-anchor', d => d.x0 < width / 2 ? 'start' : 'end')
+        .style('font-size', '12px')
+        .style('font-weight', '500')
+        .text(d => `${d.name} (${formatNumber(d.value)})`)
+        .style('fill', '#2d3748');
+    }
+
+    // Load all data
+    function loadAllData() {
+      loadProgressionStats();
+      loadSankeyDiagram();
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAllData();
+    });
+  </script>
+</body>
+</html>

@@ -6,6 +6,7 @@ import { destConfig } from '../../config/database.js';
 import { getDashboardMetrics, getCurriculumFunnel, getFacilitatorStats, getMonthlyMetrics } from '../queries/metrics.js';
 import { getGroups, getGroupById, getGroupMembers, getRescueList, getCourseList } from '../queries/groups.js';
 import { getFunnelStages, getFunnelConversions, getFunnelTimeline, getFunnelDropoff, getFunnelHealth } from '../queries/funnel.js';
+import { getMemberFlow, getMemberProgressionStats } from '../queries/sankey.js';
 
 const router = Router();
 const { Pool } = pg;
@@ -220,6 +221,31 @@ router.get('/funnel/health', async (req, res) => {
     res.json(health);
   } catch (err) {
     console.error('Error fetching funnel health:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sankey diagram endpoints
+router.get('/sankey/flow', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const flow = await getMemberFlow(pool, dateFrom, dateTo);
+    res.json(flow);
+  } catch (err) {
+    console.error('Error fetching member flow:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/sankey/stats', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const stats = await getMemberProgressionStats(pool, dateFrom, dateTo);
+    res.json(stats);
+  } catch (err) {
+    console.error('Error fetching member progression stats:', err);
     res.status(500).json({ error: err.message });
   }
 });
