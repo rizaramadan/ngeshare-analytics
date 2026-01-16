@@ -3,6 +3,14 @@
 ## 0. Pre-Requisites & Clarifications
 *Resolve these BEFORE implementation begins.*
 
+### Technology Stack
+| Component | Technology |
+|-----------|------------|
+| **Sync Script** | NodeJS |
+| **Local Database** | PostgreSQL 15+ (Docker) |
+| **Web Framework** | NodeJS/NestJs |
+| **Frontend** | HTML + Vanilla JS + CSS |
+
 ### A. Schema Documentation
 ```sql
 create table public."User"
@@ -142,6 +150,8 @@ create table public."UserHangoutGroupAttendance"
 | Expected data volume per table? | tens of thousands |
 | Any PII/privacy concerns with local storage? | no |
 
+**Success Criteria:** All questions in tables B and C are answered and documented.
+
 ---
 
 ## 1. Domain "Truths" & Business Logic
@@ -166,7 +176,7 @@ create table public."UserHangoutGroupAttendance"
 A group moving from Course A → Course B is the "same group" if:
 1. `Facilitator` is the same
 2. **≥2 Members** overlap in `UserHangoutGroup` membership
-3. _(Optional)_ Time gap between graduation and new start ≤ **180 days** 
+3. Time gap between graduation and new start ≤ **90 days** (3 months)
 
 ### D. Alumni Rule
 A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup` record as `'MEMBER'` with `joinedAt` earlier than their current `'FACILITATOR'` record.
@@ -195,8 +205,9 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 - [ ] **1.2.6** Sync `HangoutGroup` table — verify row count
 - [ ] **1.2.7** Sync `UserHangoutGroup` table — verify row count
 - [ ] **1.2.8** (If needed) Sync `User` table for names
+- [ ] **1.2.9** Handle `deletedAt` sync — propagate soft deletes to local DB
 
-**Success Criteria:** All incremental tables sync correctly; row counts match ±0.1%.
+**Success Criteria:** All incremental tables sync correctly; row counts match ±0.1%; soft deletes propagated.
 
 #### 1.3 Attendance Sync ("Window Sync")
 - [ ] **1.3.1** Implement DELETE for local records where `attendedAt > NOW() - 45 days`
@@ -213,6 +224,14 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 
 **Success Criteria:** Validation passes; data quality issues documented.
 
+#### 1.5 Error Handling
+- [ ] **1.5.1** Define retry strategy for connection failures (3 retries, exponential backoff)
+- [ ] **1.5.2** Implement partial sync recovery (resume from last successful batch)
+- [ ] **1.5.3** Create `sync_error_log` table with timestamps and error details
+- [ ] **1.5.4** Alert/log when sync fails after all retries
+
+**Success Criteria:** Sync gracefully handles temporary failures; errors logged for debugging.
+
 ---
 
 ### Phase 2: Data Cleaning & Base Views
@@ -221,12 +240,15 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 ```sql
 -- Columns: group_id, group_name, course_name, max_episodes, facilitator_id, facilitator_name, member_count, created_at
 ```
+- [ ] **2.1.0** Decide view strategy: Regular views vs Materialized views with manual refresh
 - [ ] **2.1.1** JOIN `HangoutGroup` → `Hangout` (for course name)
 - [ ] **2.1.2** JOIN `UserHangoutGroup` WHERE role = 'FACILITATOR'
-- [ ] **2.1.3** Handle edge case: groups with 0 or >1 facilitators
+- [ ] **2.1.3** Handle edge cases:
+  - Groups with 0 facilitators → Flag as `needs_facilitator = TRUE`
+  - Groups with >1 facilitators → Use earliest `joinedAt` or log as anomaly
 - [ ] **2.1.4** Add `max_episodes` lookup based on course name
 
-**Success Criteria:** All groups have exactly 1 facilitator row; no NULLs in required columns.
+**Success Criteria:** All groups have exactly 1 facilitator row; edge cases handled gracefully; no NULLs in required columns.
 
 #### 2.2 View: `v_group_progress`
 ```sql
@@ -248,6 +270,14 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 - [ ] **2.3.3** Calculate `is_active` based on recent attendance
 
 **Success Criteria:** Every group has at least 1 facilitator and 2-5 members.
+
+#### 2.4 Performance Optimization
+- [ ] **2.4.1** Add index on `UserHangoutGroupAttendance(hangoutGroupId, attendedAt)`
+- [ ] **2.4.2** Add index on `UserHangoutGroup(hangoutGroupId, hangoutGroupRole)`
+- [ ] **2.4.3** Add index on `UserHangoutGroup(userId, joinedAt)`
+- [ ] **2.4.4** Benchmark view execution times; target <2 seconds
+
+**Success Criteria:** All views execute in <2 seconds on full dataset.
 
 ---
 
@@ -331,19 +361,42 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 
 ---
 
+### Phase 5: Web Application
+
+#### 5.1 Dashboard Infrastructure
+- [ ] **5.1.1** Set up web framework (Go/Echo or Python/Flask)
+- [ ] **5.1.2** Create base layout with navigation
+- [ ] **5.1.3** Implement "Sync Now" button with progress indicator
+- [ ] **5.1.4** Display last sync timestamp and status
+- [ ] **5.1.5** Add basic authentication (optional, for local use)
+
+**Success Criteria:** Web app accessible on localhost:8080; sync button triggers full sync.
+
+#### 5.2 Dashboard Views
+- [ ] **5.2.1** Homepage with key metrics summary (cards)
+- [ ] **5.2.2** Facilitator Growth dashboard with trend chart
+- [ ] **5.2.3** Curriculum Funnel visualization (bar chart or Sankey diagram)
+- [ ] **5.2.4** Rescue List page with sortable table
+- [ ] **5.2.5** Export to CSV functionality for all tables
+
+**Depends on:** 4.1, 4.2, 4.3, 4.4  
+**Success Criteria:** All metrics displayed correctly; CSV export works; UI is responsive.
+
+
 ## 3. Dependency Graph
 
 ```
 Phase 1 (Serial):
-  1.1 → 1.2 → 1.3 → 1.4
+  1.1 → 1.2 → 1.3 → 1.4 → 1.5
 
-Phase 2 (Parallel after 1.4):
-  1.4 → 2.1
-  1.4 → 2.2
-  1.4 → 2.3
+Phase 2 (Parallel after 1.5):
+  1.5 → 2.1
+  1.5 → 2.2
+  1.5 → 2.3
+  2.1 + 2.2 + 2.3 → 2.4
 
 Phase 3 (Dependencies):
-  2.1 + 2.2 → 3.1
+  2.4 + 2.1 + 2.2 → 3.1
   2.1 → 3.2
   2.1 + 2.3 → 3.3
   2.3 → 3.4
@@ -353,6 +406,10 @@ Phase 4 (Dependencies):
   3.1 + 3.3 → 4.2
   3.1 → 4.3
   3.1 → 4.4
+
+Phase 5 (Dependencies):
+  4.1 + 4.2 + 4.3 + 4.4 → 5.1
+  5.1 → 5.2
 ```
 
 ---
@@ -361,10 +418,11 @@ Phase 4 (Dependencies):
 
 | Phase | Criteria |
 |-------|----------|
-| **Phase 1** | Row counts match ±0.1%; Sync completes in <5 min; No connection errors |
-| **Phase 2** | Views execute in <2 sec; No NULL in required columns; Edge cases handled |
+| **Phase 1** | Row counts match ±0.1%; Sync completes in <5 min; Errors logged; Soft deletes handled |
+| **Phase 2** | Views execute in <2 sec; No NULL in required columns; Edge cases handled; Indexes created |
 | **Phase 3** | Status distribution matches spot-check (±5%); Pipeline links verified manually |
 | **Phase 4** | Metrics match stakeholder expectations; Rescue list actionable |
+| **Phase 5** | Web app accessible on localhost; Sync button functional; All metrics displayed |
 
 ---
 
