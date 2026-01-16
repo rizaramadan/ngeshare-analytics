@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curriculum Funnel - ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/funnel.html" class="active">Funnel</a>
+      <a href="/rescue.html">Rescue List</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Curriculum Funnel Analysis</h2>
+      <p>Track progression and conversion through the 4-stage curriculum</p>
+    </div>
+
+    <!-- Date Range Filter -->
+    <div class="date-range-filter">
+      <div class="date-inputs">
+        <div class="date-input-group">
+          <label for="dateFrom">From:</label>
+          <input type="date" id="dateFrom" />
+        </div>
+        <div class="date-input-group">
+          <label for="dateTo">To:</label>
+          <input type="date" id="dateTo" />
+        </div>
+        <button class="btn btn-primary" onclick="applyDateFilter()">Apply Filter</button>
+        <button class="btn btn-secondary" onclick="clearDateFilter()">Clear</button>
+      </div>
+      <div class="date-range-info" id="dateRangeInfo"></div>
+    </div>
+
+    <!-- Funnel Health Metrics -->
+    <div class="funnel-metrics" id="funnelHealth">
+      <div class="loading">Loading funnel health...</div>
+    </div>
+
+    <!-- Visual Funnel -->
+    <div class="chart-container">
+      <h3>Visual Funnel</h3>
+      <div class="funnel-visual" id="funnelVisual">
+        <div class="loading">Loading funnel...</div>
+      </div>
+    </div>
+
+    <!-- Conversion Analysis -->
+    <div class="chart-container">
+      <h3>Stage-by-Stage Breakdown</h3>
+      <div class="stage-details">
+        <table class="stage-details-table" id="stageDetailsTable">
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th>Total Groups</th>
+              <th>Active</th>
+              <th>Graduated</th>
+              <th>Stalled</th>
+              <th>Avg Progress</th>
+              <th>Conversion Rate</th>
+              <th>Stall Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="8" class="loading">Loading stage details...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Time-based Analysis -->
+    <div class="chart-container">
+      <h3>Time & Engagement Analysis</h3>
+      <canvas id="timelineChart" height="80"></canvas>
+    </div>
+
+    <!-- Drop-off Analysis Chart -->
+    <div class="chart-container">
+      <h3>Drop-off Analysis</h3>
+      <p style="color: var(--gray-500); font-size: 0.875rem; margin-bottom: 1rem;">
+        Shows stall rates and typical stalling points across curriculum stages
+      </p>
+      <canvas id="dropoffChart" height="80"></canvas>
+    </div>
+
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let timelineChartInstance = null;
+    let dropoffChartInstance = null;
+
+    // Load all funnel data
+    async function loadFunnelDashboard() {
+      try {
+        const params = getDateParams();
+
+        // Load all data in parallel
+        const [health, stages, conversions, timeline, dropoff] = await Promise.all([
+          fetch(`/api/funnel/health${params}`).then(r => r.json()),
+          fetch(`/api/funnel/stages${params}`).then(r => r.json()),
+          fetch(`/api/funnel/conversions${params}`).then(r => r.json()),
+          fetch(`/api/funnel/timeline${params}`).then(r => r.json()),
+          fetch(`/api/funnel/dropoff${params}`).then(r => r.json())
+        ]);
+
+        renderFunnelHealth(health);
+        renderFunnelVisual(stages, conversions);
+        renderStageDetailsTable(stages, conversions, dropoff);
+        renderTimelineChart(timeline);
+        renderDropoffChart(dropoff);
+        updateDateRangeInfo();
+      } catch (err) {
+        console.error('Error loading funnel dashboard:', err);
+      }
+    }
+
+    function getDateParams() {
+      const dateFrom = document.getElementById('dateFrom')?.value;
+      const dateTo = document.getElementById('dateTo')?.value;
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      return params.toString() ? `?${params.toString()}` : '';
+    }
+
+    function applyDateFilter() {
+      loadFunnelDashboard();
+    }
+
+    function clearDateFilter() {
+      document.getElementById('dateFrom').value = '';
+      document.getElementById('dateTo').value = '';
+      loadFunnelDashboard();
+    }
+
+    function updateDateRangeInfo() {
+      const dateFrom = document.getElementById('dateFrom')?.value;
+      const dateTo = document.getElementById('dateTo')?.value;
+      const infoEl = document.getElementById('dateRangeInfo');
+
+      if (dateFrom || dateTo) {
+        const fromText = dateFrom ? new Date(dateFrom).toLocaleDateString() : 'beginning';
+        const toText = dateTo ? new Date(dateTo).toLocaleDateString() : 'now';
+        infoEl.textContent = `Showing data from ${fromText} to ${toText}`;
+      } else {
+        infoEl.textContent = 'Showing all data';
+      }
+    }
+
+    function renderFunnelHealth(data) {
+      const container = document.getElementById('funnelHealth');
+
+      container.innerHTML = `
+        <div class="funnel-metric-card highlight">
+          <div class="metric-label">Completion Rate</div>
+          <div class="metric-value">${data.completion_rate_pct}%</div>
+          <div class="metric-change" style="color: rgba(255,255,255,0.9);">
+            ${data.completed_program} of ${data.total_started} completed
+          </div>
+        </div>
+        <div class="funnel-metric-card">
+          <div class="metric-label">Retention Rate</div>
+          <div class="metric-value">${data.retention_rate_pct}%</div>
+          <div class="metric-change" style="color: var(--gray-500);">
+            ${data.reached_final_stage} reached final stage
+          </div>
+        </div>
+        <div class="funnel-metric-card">
+          <div class="metric-label">Groups Started</div>
+          <div class="metric-value">${data.total_started}</div>
+          <div class="metric-change" style="color: var(--gray-500);">
+            At Stage 1 (Aqidah)
+          </div>
+        </div>
+        <div class="funnel-metric-card">
+          <div class="metric-label">Facilitator Progression</div>
+          <div class="metric-value">${data.facilitator_progression_pct}%</div>
+          <div class="metric-change" style="color: var(--gray-500);">
+            ${data.facilitators_progressed} of ${data.total_facilitators} progressed
+          </div>
+        </div>
+      `;
+    }
+
+    function renderFunnelVisual(stages, conversions) {
+      const container = document.getElementById('funnelVisual');
+      const stageNames = ['Aqidah', 'Hijrah', 'Sejarah', 'Dakwah'];
+
+      let html = '';
+      stages.forEach((stage, index) => {
+        const conversion = conversions[index];
+        const conversionRate = conversion?.conversion_rate_pct || 0;
+
+        html += `
+          <div class="funnel-stage stage-${stage.sequence_order}">
+            <div class="funnel-stage-content">
+              <div class="funnel-stage-title">${stageNames[index]}</div>
+              <div class="funnel-stage-count">${stage.total_groups}</div>
+              <div class="funnel-stage-subtitle">
+                ${stage.active_count} Active · ${stage.graduated_count} Graduated · ${stage.stalled_count} Stalled
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Add connector with conversion rate if not last stage
+        if (index < stages.length - 1) {
+          const rateClass = conversionRate >= 50 ? 'good' : conversionRate >= 30 ? 'medium' : 'poor';
+          html += `
+            <div class="funnel-connector">
+              <div class="funnel-arrow"></div>
+              <div class="conversion-rate ${rateClass}">
+                ${conversionRate}% conversion
+              </div>
+            </div>
+          `;
+        }
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderStageDetailsTable(stages, conversions, dropoff) {
+      const tbody = document.querySelector('#stageDetailsTable tbody');
+      const stageNames = ['Aqidah', 'Hijrah', 'Sejarah', 'Dakwah'];
+
+      let html = '';
+      stages.forEach((stage, index) => {
+        const conversion = conversions[index];
+        const drop = dropoff[index];
+        const conversionRate = conversion?.conversion_rate_pct || 0;
+        const stallRate = drop?.stalled_pct || 0;
+
+        const convClass = conversionRate >= 50 ? 'good' : conversionRate >= 30 ? 'medium' : 'poor';
+        const dropClass = stallRate >= 50 ? 'high' : stallRate >= 30 ? 'medium' : 'low';
+
+        html += `
+          <tr>
+            <td class="stage-name">${index + 1}. ${stageNames[index]}</td>
+            <td><strong>${stage.total_groups}</strong></td>
+            <td><span class="status active">${stage.active_count}</span></td>
+            <td><span class="status graduated">${stage.graduated_count}</span></td>
+            <td><span class="status stalled">${stage.stalled_count}</span></td>
+            <td>${stage.avg_progress_pct}%</td>
+            <td>
+              ${index < stages.length - 1 ? `<span class="conversion-rate ${convClass}">${conversionRate}%</span>` : '-'}
+            </td>
+            <td><span class="dropoff-indicator ${dropClass}">${stallRate}%</span></td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    function renderTimelineChart(data) {
+      const ctx = document.getElementById('timelineChart');
+      if (!ctx) return;
+
+      if (timelineChartInstance) {
+        timelineChartInstance.destroy();
+      }
+
+      const stageNames = ['Aqidah', 'Hijrah', 'Sejarah', 'Dakwah'];
+
+      timelineChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: stageNames,
+          datasets: [
+            {
+              label: 'Avg Days Active',
+              data: data.map(d => d.avg_days_active),
+              backgroundColor: 'rgba(37, 99, 235, 0.8)',
+              yAxisID: 'y'
+            },
+            {
+              label: 'Avg Meetings',
+              data: data.map(d => d.avg_meetings),
+              backgroundColor: 'rgba(34, 197, 94, 0.8)',
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            tooltip: {
+              callbacks: {
+                afterLabel: function(context) {
+                  const index = context.dataIndex;
+                  return `Completion: ${data[index].avg_completion_pct}%`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Days Active'
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Number of Meetings'
+              },
+              grid: {
+                drawOnChartArea: false,
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderDropoffChart(data) {
+      const ctx = document.getElementById('dropoffChart');
+      if (!ctx) return;
+
+      if (dropoffChartInstance) {
+        dropoffChartInstance.destroy();
+      }
+
+      const stageNames = ['Aqidah', 'Hijrah', 'Sejarah', 'Dakwah'];
+
+      dropoffChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: stageNames,
+          datasets: [
+            {
+              label: 'Stall Rate (%)',
+              data: data.map(d => d.stalled_pct),
+              backgroundColor: data.map(d => {
+                if (d.stalled_pct >= 50) return 'rgba(239, 68, 68, 0.8)';
+                if (d.stalled_pct >= 30) return 'rgba(245, 158, 11, 0.8)';
+                return 'rgba(34, 197, 94, 0.8)';
+              }),
+              borderWidth: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                afterLabel: function(context) {
+                  const index = context.dataIndex;
+                  const d = data[index];
+                  return [
+                    `Stalled groups: ${d.stalled_groups} of ${d.total_groups}`,
+                    `Avg stall point: Episode ${d.avg_stall_episode} (${d.stall_progress_pct}%)`
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              title: {
+                display: true,
+                text: 'Stall Rate (%)'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value + '%';
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Load dashboard on page load
+    loadFunnelDashboard();
+  </script>
+</body>
+</html>
