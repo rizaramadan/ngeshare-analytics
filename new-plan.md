@@ -197,23 +197,32 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 **Success Criteria:** Local DB running, schema matches production structure.
 
 #### 1.2 Base Sync Script
+
+**Sync Order (FK dependencies):** `User` → `Hangout` → `HangoutEpisode` → `HangoutGroup` → `UserHangoutGroup` → `Attendance`
+
 - [ ] **1.2.1** Create DB connection utility with retry logic (Source + Dest)
 - [ ] **1.2.2** Implement `getLastSyncTimestamp(tableName)` function
 - [ ] **1.2.3** Implement generic `syncTable(tableName, timestampCol)` function
-- [ ] **1.2.4** Sync `Hangout` table — verify row count
-- [ ] **1.2.5** Sync `HangoutEpisode` table — verify row count
-- [ ] **1.2.6** Sync `HangoutGroup` table — verify row count
-- [ ] **1.2.7** Sync `UserHangoutGroup` table — verify row count
-- [ ] **1.2.8** (If needed) Sync `User` table for names
+- [ ] **1.2.4** Sync `User` table (required for attendance FK)
+- [ ] **1.2.5** Sync `Hangout` table — verify row count
+- [ ] **1.2.6** Sync `HangoutEpisode` table — verify row count
+- [ ] **1.2.7** Sync `HangoutGroup` table — verify row count
+- [ ] **1.2.8** Sync `UserHangoutGroup` table — verify row count
 - [ ] **1.2.9** Handle `deletedAt` sync — propagate soft deletes to local DB
+- [ ] **1.2.10** Ensure idempotent sync (re-running should not duplicate data)
+- [ ] **1.2.11** Wrap each table sync in transaction
 
 **Success Criteria:** All incremental tables sync correctly; row counts match ±0.1%; soft deletes propagated.
 
 #### 1.3 Attendance Sync ("Window Sync")
+
+> **Note:** This window sync means historical attendance beyond 45 days will not be in local DB. Graduation status for groups that completed >45 days ago must rely on cached/computed status, not raw attendance recalculation.
+
 - [ ] **1.3.1** Implement DELETE for local records where `attendedAt > NOW() - 45 days`
 - [ ] **1.3.2** Implement INSERT from production where `attendedAt > NOW() - 45 days`
 - [ ] **1.3.3** Add batch processing if >10k rows (chunk size: 5000)
 - [ ] **1.3.4** Log sync duration and row counts
+- [ ] **1.3.5** Backup local attendance data before destructive sync
 
 **Success Criteria:** Attendance data for last 45 days matches production exactly.
 
@@ -255,7 +264,7 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 -- Columns: group_id, max_episode_reached, last_meeting_date, total_meetings, days_since_last_meeting
 ```
 - [ ] **2.2.1** Aggregate `UserHangoutGroupAttendance` by group
-- [ ] **2.2.2** Calculate `max_episode_reached` (MAX of episode number)
+- [ ] **2.2.2** Calculate `max_episode_reached` using `HangoutEpisode.order` field (not count)
 - [ ] **2.2.3** Calculate `last_meeting_date` (MAX of attendedAt)
 - [ ] **2.2.4** Calculate `days_since_last_meeting` (CURRENT_DATE - last_meeting_date)
 
@@ -271,11 +280,24 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 
 **Success Criteria:** Every group has at least 1 facilitator and 2-5 members.
 
-#### 2.4 Performance Optimization
-- [ ] **2.4.1** Add index on `UserHangoutGroupAttendance(hangoutGroupId, attendedAt)`
-- [ ] **2.4.2** Add index on `UserHangoutGroup(hangoutGroupId, hangoutGroupRole)`
-- [ ] **2.4.3** Add index on `UserHangoutGroup(userId, joinedAt)`
-- [ ] **2.4.4** Benchmark view execution times; target <2 seconds
+#### 2.4 Reference Data
+- [ ] **2.4.1** Create `course_config` table:
+  ```sql
+  CREATE TABLE course_config (
+    course_name TEXT PRIMARY KEY,
+    max_episodes INTEGER NOT NULL,
+    sequence_order INTEGER NOT NULL  -- 1=Aqidah, 2=Hijrah, 3=Sejarah, 4=Dakwah
+  );
+  ```
+- [ ] **2.4.2** Populate with curriculum data (avoids hardcoding in views)
+
+**Success Criteria:** All views reference `course_config` instead of hardcoded values.
+
+#### 2.5 Performance Optimization
+- [ ] **2.5.1** Add index on `UserHangoutGroupAttendance(hangoutGroupId, attendedAt)`
+- [ ] **2.5.2** Add index on `UserHangoutGroup(hangoutGroupId, hangoutGroupRole)`
+- [ ] **2.5.3** Add index on `UserHangoutGroup(userId, joinedAt)`
+- [ ] **2.5.4** Benchmark view execution times; target <2 seconds
 
 **Success Criteria:** All views execute in <2 seconds on full dataset.
 
@@ -307,13 +329,14 @@ A Facilitator is `is_alumni = TRUE` if they have a historical `UserHangoutGroup`
 
 #### 3.3 View: `v_curriculum_pipeline` (Group Linker)
 ```sql
--- Columns: group_a_id, course_a, group_b_id, course_b, shared_facilitator_id, shared_member_count, days_between
+-- Columns: group_a_id, course_a, group_b_id, course_b, shared_facilitator_id, shared_member_count, overlap_pct, days_between
 ```
 - [ ] **3.3.1** Self-join `HangoutGroup` on same facilitator
-- [ ] **3.3.2** Filter: course_b follows course_a in sequence
+- [ ] **3.3.2** Filter: course_b follows course_a in sequence (use `course_config.sequence_order`)
 - [ ] **3.3.3** Count overlapping members using `UserHangoutGroup`
-- [ ] **3.3.4** Filter: shared_member_count ≥ 2
-- [ ] **3.3.5** Calculate `days_between` (course_b start - course_a graduation)
+- [ ] **3.3.4** Calculate `overlap_pct` = shared_member_count / MIN(group_a_size, group_b_size) * 100
+- [ ] **3.3.5** Filter: shared_member_count ≥ 2 AND overlap_pct ≥ 50%
+- [ ] **3.3.6** Calculate `days_between` (course_b start - course_a graduation)
 
 **Depends on:** 2.1, 2.3  
 **Success Criteria:** Pipeline correctly links groups across curriculum stages.
@@ -393,12 +416,13 @@ Phase 2 (Parallel after 1.5):
   1.5 → 2.1
   1.5 → 2.2
   1.5 → 2.3
-  2.1 + 2.2 + 2.3 → 2.4
+  1.5 → 2.4 (course_config table)
+  2.1 + 2.2 + 2.3 + 2.4 → 2.5
 
 Phase 3 (Dependencies):
-  2.4 + 2.1 + 2.2 → 3.1
+  2.5 + 2.1 + 2.2 → 3.1
   2.1 → 3.2
-  2.1 + 2.3 → 3.3
+  2.1 + 2.3 + 2.4 → 3.3
   2.3 → 3.4
 
 Phase 4 (Dependencies):
