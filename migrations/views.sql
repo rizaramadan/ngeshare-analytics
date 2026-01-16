@@ -95,7 +95,13 @@ SELECT
     gp.days_since_last_meeting,
     CASE
         WHEN gs.max_episodes > 0 AND gp.max_episode_reached >= gs.max_episodes THEN 'GRADUATED'
-        WHEN gp.days_since_last_meeting <= 28 OR gp.days_since_last_meeting IS NULL THEN 'ACTIVE'
+        WHEN gp.days_since_last_meeting IS NULL THEN
+            -- No attendance yet: ACTIVE if recently created (≤28 days), else STALLED
+            CASE
+                WHEN EXTRACT(DAY FROM NOW() - gs.created_at) <= 28 THEN 'ACTIVE'
+                ELSE 'STALLED'
+            END
+        WHEN gp.days_since_last_meeting <= 28 THEN 'ACTIVE'
         ELSE 'STALLED'
     END AS computed_status,
     CASE

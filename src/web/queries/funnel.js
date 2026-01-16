@@ -227,7 +227,7 @@ export async function getFunnelHealth(pool, dateFrom = null, dateTo = null) {
       WHERE sequence_order = 4 AND computed_status = 'GRADUATED'
     ),
     facilitators_multi_stage AS (
-      SELECT COUNT(DISTINCT facilitator_id) AS count
+      SELECT facilitator_id
       FROM filtered_groups
       WHERE facilitator_id IS NOT NULL
       GROUP BY facilitator_id
