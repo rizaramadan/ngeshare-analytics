@@ -23,9 +23,32 @@
       <p>Overview of curriculum progression and group health</p>
     </div>
 
+    <!-- Date Range Filter -->
+    <div class="date-range-filter">
+      <div class="date-inputs">
+        <div class="date-input-group">
+          <label for="dateFrom">From:</label>
+          <input type="date" id="dateFrom" />
+        </div>
+        <div class="date-input-group">
+          <label for="dateTo">To:</label>
+          <input type="date" id="dateTo" />
+        </div>
+        <button class="btn btn-primary" onclick="applyDateFilter()">Apply Filter</button>
+        <button class="btn btn-secondary" onclick="clearDateFilter()">Clear</button>
+      </div>
+      <div class="date-range-info" id="dateRangeInfo"></div>
+    </div>
+
     <!-- Metrics Grid -->
     <div class="metrics-grid" id="metrics">
       <div class="loading">Loading metrics...</div>
+    </div>
+
+    <!-- Monthly Metrics Chart -->
+    <div class="chart-container">
+      <h3>Monthly Metrics</h3>
+      <canvas id="monthlyChart" height="80"></canvas>
     </div>
 
     <!-- Funnel Chart -->
@@ -38,18 +61,62 @@
   <script src="/js/app.js"></script>
   <script src="/js/charts.js"></script>
   <script>
+    let monthlyChartInstance = null;
+
     // Load dashboard data
     async function loadDashboard() {
       try {
+        const params = getDateParams();
+
         // Load metrics
-        const metrics = await fetch('/api/metrics').then(r => r.json());
+        const metrics = await fetch(`/api/metrics${params}`).then(r => r.json());
         renderMetrics(metrics);
 
+        // Load monthly metrics
+        const monthly = await fetch(`/api/metrics/monthly${params}`).then(r => r.json());
+        renderMonthlyChart(monthly);
+
         // Load funnel
-        const funnel = await fetch('/api/funnel').then(r => r.json());
+        const funnel = await fetch(`/api/funnel${params}`).then(r => r.json());
         renderFunnelChart(funnel);
+
+        // Update date range info
+        updateDateRangeInfo();
       } catch (err) {
         console.error('Error loading dashboard:', err);
+      }
+    }
+
+    function getDateParams() {
+      const dateFrom = document.getElementById('dateFrom')?.value;
+      const dateTo = document.getElementById('dateTo')?.value;
+      const params = new URLSearchParams();
+      if (dateFrom) params.set('dateFrom', dateFrom);
+      if (dateTo) params.set('dateTo', dateTo);
+      return params.toString() ? `?${params.toString()}` : '';
+    }
+
+    function applyDateFilter() {
+      loadDashboard();
+    }
+
+    function clearDateFilter() {
+      document.getElementById('dateFrom').value = '';
+      document.getElementById('dateTo').value = '';
+      loadDashboard();
+    }
+
+    function updateDateRangeInfo() {
+      const dateFrom = document.getElementById('dateFrom')?.value;
+      const dateTo = document.getElementById('dateTo')?.value;
+      const infoEl = document.getElementById('dateRangeInfo');
+
+      if (dateFrom || dateTo) {
+        const fromText = dateFrom ? new Date(dateFrom).toLocaleDateString() : 'beginning';
+        const toText = dateTo ? new Date(dateTo).toLocaleDateString() : 'now';
+        infoEl.textContent = `Showing data from ${fromText} to ${toText}`;
+      } else {
+        infoEl.textContent = 'Showing all data';
       }
     }
 
@@ -60,35 +127,101 @@
       container.innerHTML = `
         <div class="metric-card active">
           <div class="label">Active Groups</div>
-          <div class="value">${data.active_groups}</div>
+          <div class="value">${data.active_groups || 0}</div>
           <div class="sub">Currently meeting</div>
         </div>
         <div class="metric-card graduated">
           <div class="label">Graduated Groups</div>
-          <div class="value">${data.graduated_groups}</div>
+          <div class="value">${data.graduated_groups || 0}</div>
           <div class="sub">Completed curriculum</div>
         </div>
         <div class="metric-card stalled">
           <div class="label">Stalled Groups</div>
-          <div class="value">${data.stalled_groups}</div>
+          <div class="value">${data.stalled_groups || 0}</div>
           <div class="sub">Inactive >28 days</div>
         </div>
         <div class="metric-card">
           <div class="label">Total Facilitators</div>
-          <div class="value">${data.total_facilitators}</div>
+          <div class="value">${data.total_facilitators || 0}</div>
           <div class="sub">${alumniPct}% are alumni</div>
         </div>
         <div class="metric-card">
           <div class="label">Total Members</div>
-          <div class="value">${data.total_members}</div>
+          <div class="value">${data.total_members || 0}</div>
           <div class="sub">Across all groups</div>
         </div>
         <div class="metric-card">
           <div class="label">Total Groups</div>
-          <div class="value">${data.total_groups}</div>
+          <div class="value">${data.total_groups || 0}</div>
           <div class="sub">All time</div>
         </div>
       `;
+    }
+
+    function renderMonthlyChart(data) {
+      const ctx = document.getElementById('monthlyChart');
+      if (!ctx) return;
+
+      // Destroy existing chart if it exists
+      if (monthlyChartInstance) {
+        monthlyChartInstance.destroy();
+      }
+
+      const labels = data.map(d => {
+        const date = new Date(d.month);
+        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      });
+
+      monthlyChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Active Groups',
+              data: data.map(d => d.active_groups),
+              borderColor: '#22c55e',
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              tension: 0.3
+            },
+            {
+              label: 'Total Meetings',
+              data: data.map(d => d.total_meetings),
+              borderColor: '#2563eb',
+              backgroundColor: 'rgba(37, 99, 235, 0.1)',
+              tension: 0.3
+            },
+            {
+              label: 'New Groups',
+              data: data.map(d => d.new_groups),
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                precision: 0
+              }
+            }
+          }
+        }
+      });
     }
 
     loadDashboard();

@@ -3,7 +3,7 @@
 import { Router } from 'express';
 import pg from 'pg';
 import { destConfig } from '../../config/database.js';
-import { getDashboardMetrics, getCurriculumFunnel, getFacilitatorStats } from '../queries/metrics.js';
+import { getDashboardMetrics, getCurriculumFunnel, getFacilitatorStats, getMonthlyMetrics } from '../queries/metrics.js';
 import { getGroups, getGroupById, getGroupMembers, getRescueList, getCourseList } from '../queries/groups.js';
 
 const router = Router();
@@ -15,8 +15,10 @@ const pool = new Pool(destConfig);
 // Dashboard metrics
 router.get('/metrics', async (req, res) => {
   try {
-    const metrics = await getDashboardMetrics(pool);
-    const facilitators = await getFacilitatorStats(pool);
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const metrics = await getDashboardMetrics(pool, dateFrom, dateTo);
+    const facilitators = await getFacilitatorStats(pool, dateFrom, dateTo);
     res.json({ ...metrics, ...facilitators });
   } catch (err) {
     console.error('Error fetching metrics:', err);
@@ -27,10 +29,25 @@ router.get('/metrics', async (req, res) => {
 // Curriculum funnel data
 router.get('/funnel', async (req, res) => {
   try {
-    const funnel = await getCurriculumFunnel(pool);
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const funnel = await getCurriculumFunnel(pool, dateFrom, dateTo);
     res.json(funnel);
   } catch (err) {
     console.error('Error fetching funnel:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Monthly metrics breakdown
+router.get('/metrics/monthly', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const monthly = await getMonthlyMetrics(pool, dateFrom, dateTo);
+    res.json(monthly);
+  } catch (err) {
+    console.error('Error fetching monthly metrics:', err);
     res.status(500).json({ error: err.message });
   }
 });
