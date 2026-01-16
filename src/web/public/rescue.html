@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rescue List - ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/rescue.html" class="active">Rescue List</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Rescue List</h2>
+      <p>Groups that are stalled but close to completion (70%+ progress) - prioritize outreach</p>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <h3>Groups Needing Attention</h3>
+        <div class="filters">
+          <a href="/api/export/rescue" class="btn btn-secondary">Export CSV</a>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Group Name</th>
+            <th>Course</th>
+            <th>Facilitator</th>
+            <th>Progress</th>
+            <th>Days Inactive</th>
+            <th>Episodes Left</th>
+          </tr>
+        </thead>
+        <tbody id="rescueTable">
+          <tr><td colspan="6" class="loading">Loading rescue list...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    async function loadRescueList() {
+      try {
+        const rescue = await fetch('/api/rescue').then(r => r.json());
+        renderRescueList(rescue);
+      } catch (err) {
+        console.error('Error loading rescue list:', err);
+      }
+    }
+
+    function renderRescueList(groups) {
+      const tbody = document.getElementById('rescueTable');
+
+      if (groups.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No groups need rescue - great job!</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = groups.map(g => `
+        <tr>
+          <td><strong>${g.group_name}</strong></td>
+          <td>${g.course_name ? g.course_name.replace('Ngeshare Sesi ', '') : '-'}</td>
+          <td>${g.facilitator_email || '-'}</td>
+          <td style="min-width: 100px">${getProgressBar(g.progress_pct)}</td>
+          <td>${g.days_since_last_meeting !== null ? g.days_since_last_meeting + ' days' : '-'}</td>
+          <td>${g.episodes_remaining} episodes</td>
+        </tr>
+      `).join('');
+    }
+
+    loadRescueList();
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/" class="active">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/rescue.html">Rescue List</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Dashboard</h2>
+      <p>Overview of curriculum progression and group health</p>
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="metrics-grid" id="metrics">
+      <div class="loading">Loading metrics...</div>
+    </div>
+
+    <!-- Funnel Chart -->
+    <div class="chart-container">
+      <h3>Curriculum Funnel</h3>
+      <canvas id="funnelChart" height="100"></canvas>
+    </div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/charts.js"></script>
+  <script>
+    // Load dashboard data
+    async function loadDashboard() {
+      try {
+        // Load metrics
+        const metrics = await fetch('/api/metrics').then(r => r.json());
+        renderMetrics(metrics);
+
+        // Load funnel
+        const funnel = await fetch('/api/funnel').then(r => r.json());
+        renderFunnelChart(funnel);
+      } catch (err) {
+        console.error('Error loading dashboard:', err);
+      }
+    }
+
+    function renderMetrics(data) {
+      const container = document.getElementById('metrics');
+      const alumniPct = data.total > 0 ? Math.round((data.alumni / data.total) * 100) : 0;
+
+      container.innerHTML = `
+        <div class="metric-card active">
+          <div class="label">Active Groups</div>
+          <div class="value">${data.active_groups}</div>
+          <div class="sub">Currently meeting</div>
+        </div>
+        <div class="metric-card graduated">
+          <div class="label">Graduated Groups</div>
+          <div class="value">${data.graduated_groups}</div>
+          <div class="sub">Completed curriculum</div>
+        </div>
+        <div class="metric-card stalled">
+          <div class="label">Stalled Groups</div>
+          <div class="value">${data.stalled_groups}</div>
+          <div class="sub">Inactive >28 days</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Total Facilitators</div>
+          <div class="value">${data.total_facilitators}</div>
+          <div class="sub">${alumniPct}% are alumni</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Total Members</div>
+          <div class="value">${data.total_members}</div>
+          <div class="sub">Across all groups</div>
+        </div>
+        <div class="metric-card">
+          <div class="label">Total Groups</div>
+          <div class="value">${data.total_groups}</div>
+          <div class="sub">All time</div>
+        </div>
+      `;
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

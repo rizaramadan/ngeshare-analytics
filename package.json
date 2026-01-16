@@ -1,7 +1,7 @@
 {
-  "name": "ngeshare-analytics-sync",
+  "name": "ngeshare-analytics",
   "version": "1.0.0",
-  "description": "Data sync scripts for ngeShare Analytics",
+  "description": "Analytics dashboard and sync for ngeShare",
   "main": "src/index.js",
   "type": "module",
   "engines": {
@@ -9,10 +9,13 @@
   },
   "scripts": {
     "sync": "node src/index.js",
-    "sync:debug": "DEBUG=true node src/index.js"
+    "sync:debug": "DEBUG=true node src/index.js",
+    "dev": "node src/web/server.js",
+    "start": "node src/web/server.js"
   },
   "dependencies": {
     "pg": "^8.13.0",
-    "dotenv": "^16.4.0"
+    "dotenv": "^16.4.0",
+    "express": "^4.18.2"
   }
 }

@@ -11,6 +11,30 @@ export const SYNC_TABLES = [
     columns: ['id', 'createdAt', 'updatedAt', 'email', 'lastLogin', 'lastActive', 'deletedAt'],
     primaryKey: 'id',
     hasSoftDelete: true,
+    // Only sync users referenced in hangout tables
+    sourceFilter: `"id" IN (
+      SELECT DISTINCT "userId" FROM "UserHangoutGroup" WHERE "userId" IS NOT NULL
+      UNION
+      SELECT DISTINCT "userId" FROM "UserHangoutGroupAttendance" WHERE "userId" IS NOT NULL
+    )`,
+  },
+  {
+    name: 'Image',
+    timestampCol: 'createdAt',
+    columns: ['id', 'createdAt', 'url', 'height', 'provider', 'publicId', 'width'],
+    primaryKey: 'id',
+    hasSoftDelete: false,
+    fkColumns: [],
+  },
+  {
+    name: 'Order',
+    timestampCol: 'updatedAt',
+    columns: ['id', 'createdAt', 'updatedAt', 'userId', 'amount', 'status', 'publicId', 'type', 'expiredAt', 'uniqueCode', 'adminFee'],
+    primaryKey: 'id',
+    hasSoftDelete: false,
+    fkColumns: [],
+    // Only sync orders referenced in UserHangoutGroup
+    sourceFilter: `"id" IN (SELECT DISTINCT "orderId" FROM "UserHangoutGroup" WHERE "orderId" IS NOT NULL)`,
   },
   {
     name: 'Hangout',
@@ -82,6 +106,14 @@ export const SYNC_TABLES = [
     primaryKey: 'id',
     hasSoftDelete: false,
     fkColumns: ['orderId'],
+  },
+  {
+    name: 'UserHangoutGroupAttendance',
+    timestampCol: 'attendedAt',
+    columns: ['id', 'attendedAt', 'hangoutEpisodeId', 'hangoutGroupId', 'userId'],
+    primaryKey: 'id',
+    hasSoftDelete: false,
+    fkColumns: [],
   },
 ];
 

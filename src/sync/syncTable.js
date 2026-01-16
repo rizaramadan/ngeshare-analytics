@@ -13,7 +13,7 @@ import { logger } from '../utils/logger.js';
  * @returns {Promise<{rowsSynced: number, success: boolean}>}
  */
 export async function syncTable(sourcePool, destPool, tableConfig) {
-  const { name, timestampCol, columns, primaryKey, hasSoftDelete, fkColumns = [] } = tableConfig;
+  const { name, timestampCol, columns, primaryKey, hasSoftDelete, fkColumns = [], sourceFilter } = tableConfig;
 
   logger.info(`Starting sync for table: ${name}`);
 
@@ -42,13 +42,24 @@ export async function syncTable(sourcePool, destPool, tableConfig) {
     // Build SELECT query for source (incremental if lastSync exists)
     let selectQuery = `SELECT ${columns.map((c) => `"${c}"`).join(', ')} FROM "${name}"`;
     const params = [];
+    const whereClauses = [];
 
     if (lastSync) {
-      selectQuery += ` WHERE "${timestampCol}" > $1`;
       params.push(lastSync);
+      whereClauses.push(`"${timestampCol}" > $${params.length}`);
       logger.debug(`Incremental sync from ${lastSync.toISOString()}`);
     } else {
       logger.debug('Full sync (no previous sync found)');
+    }
+
+    // Apply source filter if specified
+    if (sourceFilter) {
+      whereClauses.push(`(${sourceFilter})`);
+      logger.debug(`Applying source filter`);
+    }
+
+    if (whereClauses.length > 0) {
+      selectQuery += ` WHERE ${whereClauses.join(' AND ')}`;
     }
 
     selectQuery += ` ORDER BY "${timestampCol}" ASC`;

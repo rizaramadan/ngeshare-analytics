@@ -5,7 +5,8 @@ import { FK_TABLE_MAP } from './tableConfigs.js';
 
 /**
  * Ensures placeholder records exist for FK references
- * Extracts unique FK IDs from source data and creates minimal records in dest
+ * If destination already has data in FK tables, skip placeholder creation
+ * Otherwise, try to sync the FK records from source
  */
 export async function ensureFkPlaceholders(sourcePool, destClient, tableName, fkColumns) {
   if (!fkColumns || fkColumns.length === 0) return;
@@ -14,7 +15,14 @@ export async function ensureFkPlaceholders(sourcePool, destClient, tableName, fk
     const refTable = FK_TABLE_MAP[fkCol];
     if (!refTable) continue;
 
-    // Get distinct FK values from source
+    // Check if dest table already has data - if so, skip placeholder creation
+    const countResult = await destClient.query(`SELECT COUNT(*) as cnt FROM "${refTable}"`);
+    if (parseInt(countResult.rows[0].cnt) > 0) {
+      logger.debug(`${refTable} already has data, skipping placeholder creation`);
+      continue;
+    }
+
+    // Get distinct FK values from source that we need
     const sourceQuery = `
       SELECT DISTINCT "${fkCol}" as fk_id
       FROM "${tableName}"
@@ -25,15 +33,20 @@ export async function ensureFkPlaceholders(sourcePool, destClient, tableName, fk
 
     if (fkIds.length === 0) continue;
 
-    // Insert placeholders (ignore conflicts)
-    const insertQuery = `
-      INSERT INTO "${refTable}" (id, "createdAt", "updatedAt")
-      SELECT unnest($1::text[]), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-      ON CONFLICT (id) DO NOTHING
-    `;
-    const result = await destClient.query(insertQuery, [fkIds]);
-    if (result.rowCount > 0) {
-      logger.debug(`Created ${result.rowCount} placeholder(s) in ${refTable} for ${tableName}.${fkCol}`);
+    // Try to insert minimal placeholders (ignore conflicts)
+    // This may fail if the table has required columns we don't know about
+    try {
+      const insertQuery = `
+        INSERT INTO "${refTable}" (id, "createdAt", "updatedAt")
+        SELECT unnest($1::text[]), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        ON CONFLICT (id) DO NOTHING
+      `;
+      const result = await destClient.query(insertQuery, [fkIds]);
+      if (result.rowCount > 0) {
+        logger.debug(`Created ${result.rowCount} placeholder(s) in ${refTable} for ${tableName}.${fkCol}`);
+      }
+    } catch (err) {
+      logger.debug(`Could not create placeholders in ${refTable}: ${err.message}`);
     }
   }
 }
