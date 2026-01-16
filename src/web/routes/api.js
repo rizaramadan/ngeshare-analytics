@@ -5,6 +5,7 @@ import pg from 'pg';
 import { destConfig } from '../../config/database.js';
 import { getDashboardMetrics, getCurriculumFunnel, getFacilitatorStats, getMonthlyMetrics } from '../queries/metrics.js';
 import { getGroups, getGroupById, getGroupMembers, getRescueList, getCourseList } from '../queries/groups.js';
+import { getFunnelStages, getFunnelConversions, getFunnelTimeline, getFunnelDropoff, getFunnelHealth } from '../queries/funnel.js';
 
 const router = Router();
 const { Pool } = pg;
@@ -158,6 +159,67 @@ router.get('/export/rescue', async (req, res) => {
     res.send(csv);
   } catch (err) {
     console.error('Error exporting rescue list:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Funnel dashboard endpoints
+router.get('/funnel/stages', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const stages = await getFunnelStages(pool, dateFrom, dateTo);
+    res.json(stages);
+  } catch (err) {
+    console.error('Error fetching funnel stages:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/funnel/conversions', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const conversions = await getFunnelConversions(pool, dateFrom, dateTo);
+    res.json(conversions);
+  } catch (err) {
+    console.error('Error fetching funnel conversions:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/funnel/timeline', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const timeline = await getFunnelTimeline(pool, dateFrom, dateTo);
+    res.json(timeline);
+  } catch (err) {
+    console.error('Error fetching funnel timeline:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/funnel/dropoff', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const dropoff = await getFunnelDropoff(pool, dateFrom, dateTo);
+    res.json(dropoff);
+  } catch (err) {
+    console.error('Error fetching funnel dropoff:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/funnel/health', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const health = await getFunnelHealth(pool, dateFrom, dateTo);
+    res.json(health);
+  } catch (err) {
+    console.error('Error fetching funnel health:', err);
     res.status(500).json({ error: err.message });
   }
 });

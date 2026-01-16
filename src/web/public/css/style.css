@@ -346,6 +346,219 @@ tr:hover {
   color: var(--gray-500);
 }
 
+/* Funnel Visualization */
+.funnel-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.funnel-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+  clip-path: polygon(5% 0%, 95% 0%, 90% 100%, 10% 100%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.funnel-stage:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.funnel-stage.stage-1 { width: 100%; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); }
+.funnel-stage.stage-2 { width: 85%; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+.funnel-stage.stage-3 { width: 70%; background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%); }
+.funnel-stage.stage-4 { width: 55%; background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%); }
+
+.funnel-stage-content {
+  text-align: center;
+  padding: 1rem;
+  z-index: 1;
+}
+
+.funnel-stage-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.funnel-stage-count {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.funnel-stage-subtitle {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+.funnel-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.5rem 0;
+}
+
+.funnel-arrow {
+  width: 2px;
+  height: 20px;
+  background: var(--gray-300);
+  position: relative;
+}
+
+.funnel-arrow::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--gray-300);
+}
+
+.conversion-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: white;
+  border: 1px solid var(--gray-200);
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
+.conversion-rate.good { color: var(--success); border-color: var(--success); background: #dcfce7; }
+.conversion-rate.medium { color: var(--warning); border-color: var(--warning); background: #fef3c7; }
+.conversion-rate.poor { color: var(--danger); border-color: var(--danger); background: #fee2e2; }
+
+/* Funnel Metrics Grid */
+.funnel-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.funnel-metric-card {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--gray-200);
+  text-align: center;
+}
+
+.funnel-metric-card .metric-label {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.funnel-metric-card .metric-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.funnel-metric-card .metric-change {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.funnel-metric-card.highlight {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  color: white;
+}
+
+.funnel-metric-card.highlight .metric-label,
+.funnel-metric-card.highlight .metric-value {
+  color: white;
+}
+
+/* Stage Details Table */
+.stage-details {
+  margin-top: 2rem;
+}
+
+.stage-details-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stage-details-table th {
+  text-align: center;
+  padding: 0.75rem;
+  background: var(--gray-50);
+  font-weight: 600;
+  color: var(--gray-700);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.stage-details-table td {
+  text-align: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.stage-details-table .stage-name {
+  text-align: left;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* Drop-off indicator */
+.dropoff-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.dropoff-indicator.high { background: #fee2e2; color: #991b1b; }
+.dropoff-indicator.medium { background: #fef3c7; color: #92400e; }
+.dropoff-indicator.low { background: #dcfce7; color: #166534; }
+
+/* Timeline visualization */
+.timeline-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.timeline-bar-fill {
+  height: 1.5rem;
+  background: var(--primary);
+  border-radius: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 600;
+  min-width: 30px;
+  transition: width 0.3s ease;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .navbar {
@@ -361,11 +574,23 @@ tr:hover {
     grid-template-columns: 1fr 1fr;
   }
 
+  .funnel-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .table-container {
     overflow-x: auto;
   }
 
   table {
     min-width: 800px;
+  }
+
+  .funnel-stage-title {
+    font-size: 0.875rem;
+  }
+
+  .funnel-stage-count {
+    font-size: 1.5rem;
   }
 }
