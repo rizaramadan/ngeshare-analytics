@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: ngeshare-analytics-db
+    environment:
+      POSTGRES_DB: ngeshare_analytics
+      POSTGRES_USER: ngeshare
+      POSTGRES_PASSWORD: ngeshare_local_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ngeshare -d ngeshare_analytics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
