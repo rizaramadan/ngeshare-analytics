@@ -1,4 +1,4 @@
-// Funnel-specific queries for conversion analysis
+git // Funnel-specific queries for conversion analysis
 
 /**
  * Get stage-by-stage funnel metrics with totals

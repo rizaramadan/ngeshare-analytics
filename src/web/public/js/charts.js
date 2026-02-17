@@ -8,9 +8,9 @@ function renderFunnelChart(data) {
   const courses = ['Ngeshare Sesi Aqidah', 'Ngeshare Sesi Hijrah', 'Ngeshare Sesi Sejarah', 'Ngeshare Sesi Dakwah'];
   const statuses = ['ACTIVE', 'GRADUATED', 'STALLED'];
   const colors = {
-    ACTIVE: 'rgba(34, 197, 94, 0.8)',
-    GRADUATED: 'rgba(37, 99, 235, 0.8)',
-    STALLED: 'rgba(245, 158, 11, 0.8)'
+    ACTIVE: 'rgba(144, 238, 144, 0.9)',      /* Light green leaf */
+    GRADUATED: 'rgba(30, 58, 95, 0.9)',      /* Dark navy blue */
+    STALLED: 'rgba(244, 196, 48, 0.85)'      /* Yellow sunlight warning */
   };
 
   // Create datasets for each status
