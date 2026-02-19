@@ -7,6 +7,7 @@ import { getDashboardMetrics, getCurriculumFunnel, getFacilitatorStats, getMonth
 import { getGroups, getGroupById, getGroupMembers, getRescueList, getCourseList } from '../queries/groups.js';
 import { getFunnelStages, getFunnelConversions, getFunnelTimeline, getFunnelDropoff, getFunnelHealth } from '../queries/funnel.js';
 import { getMemberFlow, getMemberProgressionStats } from '../queries/sankey.js';
+import { getFacilitatorRanking, getFacilitatorLineage, getRankingSummary, getFacilitatorDetails } from '../queries/facilitatorRanking.js';
 
 const router = Router();
 const { Pool } = pg;
@@ -246,6 +247,81 @@ router.get('/sankey/stats', async (req, res) => {
     res.json(stats);
   } catch (err) {
     console.error('Error fetching member progression stats:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Facilitator ranking endpoints
+router.get('/ranking', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const ranking = await getFacilitatorRanking(pool, limit);
+    res.json(ranking);
+  } catch (err) {
+    console.error('Error fetching facilitator ranking:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/ranking/summary', async (req, res) => {
+  try {
+    const summary = await getRankingSummary(pool);
+    res.json(summary);
+  } catch (err) {
+    console.error('Error fetching ranking summary:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/ranking/lineage', async (req, res) => {
+  try {
+    const facilitatorId = req.query.facilitatorId || null;
+    const lineage = await getFacilitatorLineage(pool, facilitatorId);
+    res.json(lineage);
+  } catch (err) {
+    console.error('Error fetching facilitator lineage:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/ranking/details/:facilitatorId', async (req, res) => {
+  try {
+    const details = await getFacilitatorDetails(pool, req.params.facilitatorId);
+    if (!details) {
+      return res.status(404).json({ error: 'Facilitator not found' });
+    }
+    res.json(details);
+  } catch (err) {
+    console.error('Error fetching facilitator details:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CSV export - facilitator ranking
+router.get('/export/ranking', async (req, res) => {
+  try {
+    const ranking = await getFacilitatorRanking(pool, 100);
+
+    const headers = ['Rank', 'Email', 'Groups Facilitated', 'Alumni Converted', 'Alumni Points', 'Own Members', 'Descendant Members', 'Member Points', 'Total Score'];
+    const rows = ranking.map((r, i) => [
+      i + 1,
+      r.email,
+      r.groups_facilitated,
+      r.alumni_converted,
+      r.alumni_points,
+      r.own_members,
+      r.descendant_members,
+      r.member_points,
+      r.total_score
+    ]);
+
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=facilitator-ranking.csv');
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting ranking:', err);
     res.status(500).json({ error: err.message });
   }
 });

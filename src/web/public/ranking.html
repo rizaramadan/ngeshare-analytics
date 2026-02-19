@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facilitator Ranking - ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/funnel.html">Funnel</a>
+      <a href="/sankey.html">Member Flow</a>
+      <a href="/ranking.html" class="active">Ranking</a>
+      <a href="/rescue.html">Rescue List</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Facilitator Ranking</h2>
+      <p>Ranking based on member development and member-to-facilitator conversion. Click a row to see details.</p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="metrics-grid" id="summaryCards">
+      <div class="metric-card">
+        <div class="metric-value" id="totalFacilitators">-</div>
+        <div class="metric-label">Total Facilitators</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="totalAlumni">-</div>
+        <div class="metric-label">Member-to-Facilitator</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="totalMembers">-</div>
+        <div class="metric-label">Total Members</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value" id="totalGroups">-</div>
+        <div class="metric-label">Total Groups</div>
+      </div>
+    </div>
+
+    <!-- Scoring Formula -->
+    <div class="info-card">
+      <h3>Scoring Formula</h3>
+      <ul>
+        <li><strong>+3 points</strong> for each member who became a facilitator (member-to-facilitator conversion)</li>
+        <li><strong>+1 point</strong> for each member (own members + descendant facilitators' members)</li>
+      </ul>
+    </div>
+
+    <!-- Ranking Table -->
+    <div class="table-container">
+      <div class="table-header">
+        <h3>Top Facilitators</h3>
+        <div class="filters">
+          <select id="limitFilter">
+            <option value="20">Top 20</option>
+            <option value="50" selected>Top 50</option>
+            <option value="100">Top 100</option>
+          </select>
+          <a href="/ranking-top5.html" class="btn btn-secondary" target="_blank">Top 5 Details</a>
+          <a href="/api/export/ranking" class="btn btn-secondary">Export CSV</a>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Facilitator</th>
+            <th>Groups</th>
+            <th>M2F</th>
+            <th>Own Members</th>
+            <th>Descendant Members</th>
+            <th>M2F Points</th>
+            <th>Member Points</th>
+            <th>Total Score</th>
+          </tr>
+        </thead>
+        <tbody id="rankingTable">
+          <tr><td colspan="9" class="loading">Loading ranking...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Lineage Section -->
+    <div class="table-container">
+      <div class="table-header">
+        <h3>Member-to-Facilitator Lineage</h3>
+        <p style="color: #666; font-size: 0.9em;">Members who became facilitators (mentored by their facilitator)</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Mentor (Facilitator)</th>
+            <th>Became Facilitator</th>
+            <th>Joined as Member</th>
+            <th>Became Facilitator</th>
+          </tr>
+        </thead>
+        <tbody id="lineageTable">
+          <tr><td colspan="4" class="loading">Loading lineage...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Details Modal -->
+  <div id="detailsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Facilitator Details</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody">
+        Loading...
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    async function loadSummary() {
+      try {
+        const summary = await fetch('/api/ranking/summary').then(r => r.json());
+        document.getElementById('totalFacilitators').textContent = summary.total_facilitators;
+        document.getElementById('totalAlumni').textContent = summary.total_alumni;
+        document.getElementById('totalMembers').textContent = summary.total_members;
+        document.getElementById('totalGroups').textContent = summary.total_groups;
+      } catch (err) {
+        console.error('Error loading summary:', err);
+      }
+    }
+
+    async function loadRanking() {
+      try {
+        const limit = document.getElementById('limitFilter').value;
+        const ranking = await fetch(`/api/ranking?limit=${limit}`).then(r => r.json());
+        renderRanking(ranking);
+      } catch (err) {
+        console.error('Error loading ranking:', err);
+      }
+    }
+
+    function renderRanking(ranking) {
+      const tbody = document.getElementById('rankingTable');
+
+      if (ranking.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No ranking data</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = ranking.map((r, i) => `
+        <tr class="clickable-row">
+          <td><strong>#${i + 1}</strong></td>
+          <td><a href="/ranking-details.html?id=${r.facilitator_id}" target="_blank">${r.name || r.email}</a></td>
+          <td>${r.groups_facilitated}</td>
+          <td>${r.alumni_converted > 0 ? `<span class="badge badge-success">${r.alumni_converted}</span>` : '0'}</td>
+          <td>${r.own_members}</td>
+          <td>${r.descendant_members > 0 ? `<span class="badge badge-info">${r.descendant_members}</span>` : '0'}</td>
+          <td>${r.alumni_points}</td>
+          <td>${r.member_points}</td>
+          <td><strong class="score">${r.total_score}</strong></td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadLineage() {
+      try {
+        const lineage = await fetch('/api/ranking/lineage').then(r => r.json());
+        renderLineage(lineage);
+      } catch (err) {
+        console.error('Error loading lineage:', err);
+      }
+    }
+
+    function renderLineage(lineage) {
+      const tbody = document.getElementById('lineageTable');
+
+      if (lineage.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No member-to-facilitator lineage data</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lineage.map(l => `
+        <tr>
+          <td>${l.mentor_name || l.mentor_email}</td>
+          <td>${l.alumni_name || l.alumni_email}</td>
+          <td>${formatDate(l.member_joined)}</td>
+          <td>${formatDate(l.facilitator_joined)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    }
+
+    // Modal functions
+    async function showDetails(facilitatorId, name, email) {
+      const modal = document.getElementById('detailsModal');
+      const modalTitle = document.getElementById('modalTitle');
+      const modalBody = document.getElementById('modalBody');
+
+      modalTitle.textContent = `Details: ${name || email}`;
+      modalBody.innerHTML = '<p>Loading details...</p>';
+      modal.style.display = 'flex';
+
+      try {
+        const details = await fetch(`/api/ranking/details/${facilitatorId}`).then(r => r.json());
+        renderDetails(details);
+      } catch (err) {
+        modalBody.innerHTML = `<p class="error">Error loading details: ${err.message}</p>`;
+      }
+    }
+
+    function renderDetails(details) {
+      const modalBody = document.getElementById('modalBody');
+      const { facilitator, groups, ownMembers, alumni, descendants, descendantMembers, summary } = details;
+
+      // Group descendant members by descendant
+      const membersByDescendant = {};
+      descendantMembers.forEach(dm => {
+        const key = dm.descendant_name || dm.descendant_email;
+        if (!membersByDescendant[key]) {
+          membersByDescendant[key] = [];
+        }
+        membersByDescendant[key].push(dm);
+      });
+
+      modalBody.innerHTML = `
+        <div class="details-section">
+          <h3>Score Breakdown</h3>
+          <div class="score-grid">
+            <div class="score-item">
+              <span class="score-label">Groups Facilitated</span>
+              <span class="score-value">${summary.groupsCount}</span>
+            </div>
+            <div class="score-item">
+              <span class="score-label">Own Members</span>
+              <span class="score-value">${summary.ownMembersCount}</span>
+            </div>
+            <div class="score-item">
+              <span class="score-label">Member Become Facilitator</span>
+              <span class="score-value">${summary.alumniCount}</span>
+            </div>
+            <div class="score-item">
+              <span class="score-label">Descendants</span>
+              <span class="score-value">${summary.descendantsCount}</span>
+            </div>
+            <div class="score-item">
+              <span class="score-label">Descendant Members</span>
+              <span class="score-value">${summary.descendantMembersCount}</span>
+            </div>
+            <div class="score-item highlight">
+              <span class="score-label">M2F Points (${summary.alumniCount} x 3)</span>
+              <span class="score-value">${summary.alumniPoints}</span>
+            </div>
+            <div class="score-item highlight">
+              <span class="score-label">Member Points (${summary.ownMembersCount} + ${summary.descendantMembersCount})</span>
+              <span class="score-value">${summary.memberPoints}</span>
+            </div>
+            <div class="score-item total">
+              <span class="score-label">Total Score</span>
+              <span class="score-value">${summary.totalScore}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-section">
+          <h3>Groups Facilitated (${groups.length})</h3>
+          <ul class="detail-list">
+            ${groups.map(g => `<li><strong>${g.group_name}</strong> - ${g.course_name || 'Unknown'}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div class="details-section">
+          <h3>Own Members (${ownMembers.length})</h3>
+          <table class="detail-table">
+            <thead>
+              <tr><th>Name</th><th>Groups</th><th>Courses</th></tr>
+            </thead>
+            <tbody>
+              ${ownMembers.map(m => `
+                <tr>
+                  <td>${m.name || m.email}</td>
+                  <td>${Array.isArray(m.groups) ? m.groups.join(', ') : m.group_name || '-'}</td>
+                  <td>${Array.isArray(m.courses) ? m.courses.filter(c=>c).join(', ') : m.course_name || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="details-section">
+          <h3>Member Become Facilitator (${alumni.length}) - +3 points each</h3>
+          ${alumni.length === 0 ? '<p>No member-to-facilitator conversions</p>' : `
+          <table class="detail-table">
+            <thead>
+              <tr><th>Name</th><th>Origin Groups</th><th>First Joined</th><th>Became Facilitator</th></tr>
+            </thead>
+            <tbody>
+              ${alumni.map(a => `
+                <tr>
+                  <td><strong>${a.name || a.email}</strong></td>
+                  <td>${Array.isArray(a.origin_groups) ? a.origin_groups.join(', ') : a.origin_group_name || '-'}</td>
+                  <td>${formatDate(a.first_member_joined || a.member_joined)}</td>
+                  <td>${formatDate(a.facilitator_joined)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          `}
+        </div>
+
+        <div class="details-section">
+          <h3>Descendant Tree (${descendants.length} facilitators)</h3>
+          ${descendants.length === 0 ? '<p>No descendants</p>' : `
+          <table class="detail-table">
+            <thead>
+              <tr><th>Depth</th><th>Descendant</th><th>Direct Mentor</th><th>Their Members</th></tr>
+            </thead>
+            <tbody>
+              ${descendants.map(d => `
+                <tr>
+                  <td>Level ${d.depth}</td>
+                  <td><strong>${d.descendant_name || d.descendant_email}</strong></td>
+                  <td>${d.direct_mentor_name || d.direct_mentor_email}</td>
+                  <td>${(membersByDescendant[d.descendant_name || d.descendant_email] || []).length} members</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          `}
+        </div>
+
+        <div class="details-section">
+          <h3>Descendant Members Detail (${summary.descendantMembersCount} unique)</h3>
+          ${descendantMembers.length === 0 ? '<p>No descendant members</p>' : `
+          <table class="detail-table">
+            <thead>
+              <tr><th>Descendant (Facilitator)</th><th>Level</th><th>Member</th><th>Groups</th></tr>
+            </thead>
+            <tbody>
+              ${descendantMembers.map(dm => `
+                <tr>
+                  <td>${dm.descendant_name || dm.descendant_email}</td>
+                  <td>Level ${dm.descendant_depth}</td>
+                  <td>${dm.member_name || dm.member_email}</td>
+                  <td>${Array.isArray(dm.groups) ? dm.groups.join(', ') : dm.group_name || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          `}
+        </div>
+      `;
+    }
+
+    function closeModal() {
+      document.getElementById('detailsModal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('detailsModal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    // Close modal with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Initialize
+    loadSummary();
+    loadRanking();
+    loadLineage();
+
+    // Filter listener
+    document.getElementById('limitFilter').addEventListener('change', loadRanking);
+  </script>
+
+  <style>
+    .info-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .info-card h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1rem;
+      color: #333;
+    }
+    .info-card ul {
+      margin: 0;
+      padding-left: 1.5rem;
+      color: #666;
+    }
+    .info-card li {
+      margin: 0.25rem 0;
+    }
+    .score {
+      color: #2563eb;
+      font-size: 1.1em;
+    }
+    .badge-info {
+      background: #3b82f6;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.85em;
+    }
+    .badge-success {
+      background: #22c55e;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.85em;
+    }
+    .clickable-row {
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .clickable-row:hover {
+      background: #f0f7ff;
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 12px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #eee;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 10;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #666;
+      padding: 0.25rem 0.5rem;
+    }
+    .modal-close:hover {
+      color: #333;
+    }
+    .modal-body {
+      padding: 1.5rem;
+    }
+
+    .details-section {
+      margin-bottom: 1.5rem;
+    }
+    .details-section h3 {
+      margin: 0 0 0.75rem 0;
+      font-size: 1rem;
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 0.5rem;
+    }
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem;
+    }
+    .score-item {
+      background: #f8f9fa;
+      padding: 0.75rem;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .score-item.highlight {
+      background: #e0f2fe;
+    }
+    .score-item.total {
+      background: #2563eb;
+      color: white;
+    }
+    .score-label {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .score-item.total .score-label {
+      color: rgba(255,255,255,0.9);
+    }
+    .score-value {
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .detail-list {
+      margin: 0;
+      padding-left: 1.5rem;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .detail-list li {
+      margin: 0.25rem 0;
+      font-size: 0.9rem;
+    }
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      max-height: 200px;
+      display: block;
+      overflow-y: auto;
+    }
+    .detail-table thead {
+      position: sticky;
+      top: 0;
+      background: white;
+    }
+    .detail-table th, .detail-table td {
+      padding: 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    .detail-table th {
+      font-weight: 600;
+      color: #666;
+    }
+  </style>
+</body>
+</html>

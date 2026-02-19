@@ -37,6 +37,18 @@ export const SYNC_TABLES = [
     sourceFilter: `"id" IN (SELECT DISTINCT "orderId" FROM "UserHangoutGroup" WHERE "orderId" IS NOT NULL)`,
   },
   {
+    name: 'UserProfile',
+    timestampCol: 'updatedAt',
+    columns: ['id', 'createdAt', 'updatedAt', 'userId', 'fullName', 'dateOfBirth', 'phoneNumber', 'gender', 'pictureId', 'city', 'province'],
+    primaryKey: 'id',
+    hasSoftDelete: false,
+    fkColumns: [],
+    // Only sync profiles for users that are part of a HangoutGroup
+    sourceFilter: `"userId" IN (
+      SELECT DISTINCT "userId" FROM "UserHangoutGroup" WHERE "userId" IS NOT NULL
+    )`,
+  },
+  {
     name: 'Hangout',
     timestampCol: 'updatedAt',
     columns: [

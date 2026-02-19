@@ -10,7 +10,7 @@
   "scripts": {
     "sync": "node src/index.js",
     "sync:debug": "DEBUG=true node src/index.js",
-    "dev": "node src/web/server.js",
+    "dev": "node --watch src/web/server.js",
     "start": "node src/web/server.js"
   },
   "dependencies": {

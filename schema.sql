@@ -44,6 +44,25 @@ CREATE TABLE IF NOT EXISTS public."Order" (
     "updatedAt" TIMESTAMP(3) NOT NULL
 );
 
+-- Table: UserProfile
+CREATE TABLE IF NOT EXISTS public."UserProfile" (
+    id TEXT PRIMARY KEY NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "userId" TEXT NOT NULL REFERENCES public."User"
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    "fullName" TEXT NOT NULL,
+    "dateOfBirth" TIMESTAMP(3),
+    "phoneNumber" TEXT NOT NULL,
+    gender TEXT NOT NULL,
+    "pictureId" TEXT,
+    city TEXT,
+    province TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "UserProfile_userId_key"
+    ON public."UserProfile" ("userId");
+
 -- Table: Hangout
 CREATE TABLE IF NOT EXISTS public."Hangout" (
     id TEXT PRIMARY KEY NOT NULL,

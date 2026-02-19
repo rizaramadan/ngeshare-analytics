@@ -2,6 +2,7 @@
 
 import { getLastSyncTimestamp, logSyncStart, logSyncComplete } from './syncLog.js';
 import { ensureFkPlaceholders } from './fkPlaceholders.js';
+import { syncMissingDependencies } from './syncDependencies.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -19,6 +20,9 @@ export async function syncTable(sourcePool, destPool, tableConfig) {
 
   // Get last sync timestamp for incremental sync
   const lastSync = await getLastSyncTimestamp(destPool, name);
+
+  // Sync any missing FK dependencies before syncing this table
+  await syncMissingDependencies(sourcePool, destPool, name, timestampCol, lastSync);
 
   // Determine the new sync timestamp (current max updatedAt from source)
   const maxTimestampResult = await sourcePool.query(
