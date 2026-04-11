@@ -10,13 +10,19 @@
   <link rel="stylesheet" href="https://unpkg.com/reveal.js@5.1.0/dist/reveal.css">
   <link rel="stylesheet" href="https://unpkg.com/reveal.js@5.1.0/dist/theme/black.css" id="theme">
 
+  <!-- Google Fonts: Comfortaa (titles) + Poppins (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap">
+
   <!-- ============================================================ -->
   <!--  Design tokens — edit here for branding                     -->
   <!-- ============================================================ -->
   <style>
     :root {
-      --accent: #166534;
-      --accent-soft: #dcfce7;
+      --accent: #6366f1;
+      --accent-2: #a78bfa;
+      --accent-soft: #e0e7ff;
       --muted: #64748b;
       --ink: #0f172a;
       --bg: #f8fafc;
@@ -24,14 +30,14 @@
       --border: #dbe4ee;
       --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
 
-      --text-xs: 0.75em;
-      --text-sm: 0.85em;
-      --text-md: 0.9em;
-      --text-lg: 1.08em;
-      --h3-size: 0.92em;
-      --h2-size: 1.5em;
-      --h1-cover: 2.3em;
-      --h1-title: 2.65em;
+      --text-xs: 0.7em;
+      --text-sm: 0.8em;
+      --text-md: 0.85em;
+      --text-lg: 1em;
+      --h3-size: 0.85em;
+      --h2-size: 1.25em;
+      --h1-cover: 1.85em;
+      --h1-title: 2.1em;
 
       --space-xs: 0.6em;
       --space-sm: 0.8em;
@@ -46,15 +52,22 @@
 
     .reveal {
       background:
-        radial-gradient(circle at top left, rgba(22, 101, 52, 0.08), transparent 24%),
-        linear-gradient(180deg, #fbfdff, #f4f7fb);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-      font-size: 34px;
+        radial-gradient(circle at top left, rgba(99, 102, 241, 0.1), transparent 24%),
+        radial-gradient(circle at bottom right, rgba(167, 139, 250, 0.08), transparent 26%),
+        linear-gradient(180deg, #fbfbff, #f4f3fb);
+      font-family: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-size: 26px;
       color: var(--ink);
     }
 
     .reveal .slides > section {
       text-align: left;
+    }
+
+    .reveal h1,
+    .reveal h2,
+    .reveal h3 {
+      font-family: "Comfortaa", "Poppins", sans-serif;
     }
 
     .reveal h1,
@@ -135,7 +148,7 @@
 
     .reveal .hero-copy h1 {
       font-size: var(--h1-title);
-      background: linear-gradient(135deg, var(--ink), var(--accent));
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
@@ -166,7 +179,7 @@
       inset: 0;
       background:
         linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.36)),
-        linear-gradient(135deg, rgba(22, 101, 52, 0.12), rgba(255, 255, 255, 0));
+        linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(167, 139, 250, 0.12));
     }
 
     .reveal .title-kicker,
@@ -271,6 +284,212 @@
       font-size: var(--text-sm);
     }
 
+    .reveal .agenda-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1em;
+      margin-top: 0.8em;
+    }
+
+    .reveal .agenda-cards.two-col {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .reveal .agenda-cards.four-col {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.7em;
+    }
+
+    .reveal .agenda-card {
+      background: linear-gradient(180deg, #ffffff, #f6f5ff);
+      border: 1px solid var(--border);
+      border-top: 4px solid;
+      border-image: linear-gradient(90deg, var(--accent), var(--accent-2)) 1;
+      border-radius: var(--radius);
+      padding: 1em 1em 1.1em;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 0.35em;
+    }
+
+    .reveal .agenda-num {
+      font-family: "Comfortaa", sans-serif;
+      font-size: 1.6em;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    .reveal .agenda-title {
+      font-family: "Comfortaa", sans-serif;
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .reveal .agenda-sub {
+      font-size: var(--text-sm);
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    @media (max-width: 900px) {
+      .reveal .agenda-cards {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .reveal .flow-circle {
+      position: relative;
+      width: 460px;
+      height: 460px;
+      margin: 0.4em auto 0;
+    }
+
+    .reveal .flow-ring,
+    .reveal .flow-connectors {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .reveal .flow-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 110px;
+      height: 110px;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.96);
+      border: 2px dashed var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-family: "Comfortaa", sans-serif;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 0.85em;
+      line-height: 1.15;
+      box-shadow: var(--shadow);
+    }
+
+    .reveal .flow-node {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 150px;
+      transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-180px) rotate(calc(var(--angle) * -1));
+      background: linear-gradient(180deg, #ffffff, #f6f5ff);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--accent-2);
+      border-radius: 14px;
+      padding: 0.55em 0.65em 0.6em;
+      box-shadow: var(--shadow);
+      text-align: center;
+      font-size: var(--text-sm);
+    }
+
+    .reveal .flow-num {
+      font-family: "Comfortaa", sans-serif;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.1em;
+      line-height: 1;
+      margin-bottom: 0.25em;
+    }
+
+    .reveal .flow-label {
+      line-height: 1.32;
+      font-size: 0.78em;
+      color: var(--ink);
+    }
+
+    .reveal .wizard {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.4em;
+      margin: 1.2em 0 0.6em;
+      padding: 0 0.4em;
+    }
+
+    .reveal .wizard-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 0 0 auto;
+      width: 18%;
+      text-align: center;
+    }
+
+    .reveal .wizard-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ffffff, #eef0ff);
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-family: "Comfortaa", sans-serif;
+      font-weight: 700;
+      font-size: 1.3em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow);
+      margin-bottom: 0.5em;
+    }
+
+    .reveal .wizard-circle.done {
+      background: var(--accent);
+      color: #ffffff;
+      font-size: 1.5em;
+    }
+
+    .reveal .wizard-label {
+      font-size: 0.72em;
+      line-height: 1.35;
+      color: var(--ink);
+      max-width: 14ch;
+    }
+
+    .reveal .wizard-line {
+      flex: 1 1 auto;
+      height: 2px;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--accent-2) 0,
+        var(--accent-2) 6px,
+        transparent 6px,
+        transparent 12px
+      );
+      margin-top: 28px;
+      opacity: 0.65;
+    }
+
+    @media (max-width: 900px) {
+      .reveal .wizard {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .reveal .wizard-step {
+        width: 100%;
+        flex-direction: row;
+        text-align: left;
+        gap: 0.6em;
+      }
+      .reveal .wizard-circle {
+        margin-bottom: 0;
+      }
+      .reveal .wizard-line {
+        display: none;
+      }
+    }
+
     .reveal table {
       font-size: var(--text-sm);
       border-collapse: collapse;
@@ -283,10 +502,10 @@
     }
 
     .reveal table th {
-      background: #f0fdf4;
+      background: #eef0ff;
       color: var(--accent);
       padding: 0.5em 1em;
-      border-bottom: 2px solid rgba(22, 101, 52, 0.22);
+      border-bottom: 2px solid rgba(99, 102, 241, 0.28);
       text-align: left;
       text-transform: uppercase;
       letter-spacing: var(--track-base);
@@ -373,8 +592,9 @@
       padding: 0.85em 1em;
       border-radius: 24px;
       background:
-        radial-gradient(circle at top right, rgba(22, 101, 52, 0.06), transparent 24%),
-        rgba(255, 255, 255, 0.78);
+        radial-gradient(circle at top right, rgba(167, 139, 250, 0.1), transparent 24%),
+        radial-gradient(circle at bottom left, rgba(99, 102, 241, 0.08), transparent 26%),
+        rgba(255, 255, 255, 0.8);
       border: 1px solid rgba(219, 228, 238, 0.84);
       box-shadow: var(--shadow);
     }
@@ -433,7 +653,7 @@
         <div
           class="hero-media"
           aria-hidden="true"
-          style="background-image:url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80');"
+          style="background-image:url('https://images.unsplash.com/photo-1564769625905-50e93615e769?auto=format&fit=crop&w=1200&q=80');"
         ></div>
       </div>
     </section>
@@ -441,11 +661,23 @@
     <!-- ============== AGENDA ============== -->
     <section>
       <h2>Agenda</h2>
-      <ol>
-        <li>Open Volunteer — Beta Tester ngeShare Online</li>
-        <li>Pengumuman Kenaikan SDK</li>
-        <li>Rilis Fitur Notifikasi Telegram</li>
-      </ol>
+      <div class="agenda-cards">
+        <div class="agenda-card">
+          <div class="agenda-num">1</div>
+          <div class="agenda-title">Open Volunteer</div>
+          <div class="agenda-sub">Beta Tester ngeShare Online</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">2</div>
+          <div class="agenda-title">Pengumuman</div>
+          <div class="agenda-sub">Kenaikan Versi Android</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">3</div>
+          <div class="agenda-title">Rilis Fitur</div>
+          <div class="agenda-sub">Notifikasi Telegram</div>
+        </div>
+      </div>
       <p class="caption">Q&amp;A di akhir tiap topik. Diskusi panjang → parkir ke follow-up.</p>
     </section>
 
@@ -469,11 +701,23 @@
     <section>
       <span class="session-tag">1 · Beta Tester</span>
       <h2>Kenapa butuh beta tester?</h2>
-      <ul>
-        <li>ngeShare versi online mau masuk tahap <strong>uji pengguna nyata</strong> sebelum rilis umum</li>
-        <li>Target: temukan bug, friction UX, dan kasus edge di lapangan</li>
-        <li>Segmen yang dibutuhkan: <strong class="accent">fasilitator</strong> yang memenuhi ketentuan tertentu</li>
-      </ul>
+      <div class="agenda-cards">
+        <div class="agenda-card">
+          <div class="agenda-num">1</div>
+          <div class="agenda-title">Uji Pengguna Nyata</div>
+          <div class="agenda-sub">ngeShare versi online masuk tahap uji nyata sebelum rilis umum</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">2</div>
+          <div class="agenda-title">Target Temuan</div>
+          <div class="agenda-sub">Bug, friction UX, dan kasus edge di lapangan</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">3</div>
+          <div class="agenda-title">Segmen Tester</div>
+          <div class="agenda-sub">Fasilitator yang memenuhi ketentuan tertentu</div>
+        </div>
+      </div>
     </section>
 
     <!-- ============== 1.2 ALUR KERJA ============== -->
@@ -481,13 +725,52 @@
       <span class="session-tag">1 · Beta Tester</span>
       <h2>Alur kerja beta tester</h2>
       <p class="lede">Siklus terstruktur, bukan trial bebas:</p>
-      <ol>
-        <li><strong>Install / update</strong> saat ada build baru</li>
-        <li><strong>Coba</strong> sesuai skenario tes</li>
-        <li><strong>Laporkan</strong> temuan (butuh effort menyusun)</li>
-        <li>Tim dev tindak lanjuti → rilis update</li>
-        <li>Diinformasikan → balik ke langkah 1</li>
-      </ol>
+      <div class="flow-circle">
+        <svg class="flow-connectors" viewBox="0 0 460 460" aria-hidden="true">
+          <defs>
+            <marker id="flowArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#6366f1"/>
+            </marker>
+          </defs>
+          <path
+            d="M 230 50 A 180 180 0 0 1 410 230"
+            fill="none" stroke="#6366f1" stroke-width="2.5"
+            stroke-dasharray="6 8" opacity="0.55"
+            marker-end="url(#flowArrow)"/>
+          <path
+            d="M 410 230 A 180 180 0 0 1 230 410"
+            fill="none" stroke="#6366f1" stroke-width="2.5"
+            stroke-dasharray="6 8" opacity="0.55"
+            marker-end="url(#flowArrow)"/>
+          <path
+            d="M 230 410 A 180 180 0 0 1 50 230"
+            fill="none" stroke="#6366f1" stroke-width="2.5"
+            stroke-dasharray="6 8" opacity="0.55"
+            marker-end="url(#flowArrow)"/>
+          <path
+            d="M 50 230 A 180 180 0 0 1 230 50"
+            fill="none" stroke="#6366f1" stroke-width="2.5"
+            stroke-dasharray="6 8" opacity="0.55"
+            marker-end="url(#flowArrow)"/>
+        </svg>
+        <div class="flow-center">Alur<br>Beta</div>
+        <div class="flow-node" style="--angle:0deg">
+          <div class="flow-num">1</div>
+          <div class="flow-label"><strong>Install / update</strong> saat ada build baru</div>
+        </div>
+        <div class="flow-node" style="--angle:90deg">
+          <div class="flow-num">2</div>
+          <div class="flow-label"><strong>Coba</strong> sesuai skenario tes</div>
+        </div>
+        <div class="flow-node" style="--angle:180deg">
+          <div class="flow-num">3</div>
+          <div class="flow-label"><strong>Laporkan</strong> temuan (butuh effort menyusun)</div>
+        </div>
+        <div class="flow-node" style="--angle:270deg">
+          <div class="flow-num">4</div>
+          <div class="flow-label">Tim dev tindak lanjuti → rilis update</div>
+        </div>
+      </div>
       <div class="callout">
         <div><strong>Komitmen:</strong> 2–3 jam/minggu</div>
         <div><strong>Sesi feedback:</strong> Sabtu 05:00 WIB · on-call maks. 2×/bulan</div>
@@ -527,7 +810,7 @@
       <div class="cover-grid">
         <div class="cover-copy frame">
           <div class="eyebrow">Bagian 2 · Pengumuman</div>
-          <h1 class="accent">Kenaikan SDK</h1>
+          <h1 class="accent">Kenaikan Versi Android</h1>
           <p class="section-note">Fokusnya bukan detail teknis library, tapi dampak operasional dan timing komunikasi ke member.</p>
         </div>
         <div
@@ -542,51 +825,46 @@
     <section>
       <span class="session-tag">2 · SDK</span>
       <h2>Apa yang naik versi?</h2>
-      <ul>
-        <li><strong>SDK:</strong> <code>[nama SDK — mis. Flutter / React Native / Firebase]</code></li>
-        <li><strong>Dari versi:</strong> <code>[X.Y.Z]</code> → <strong class="accent">[A.B.C]</strong></li>
-        <li><strong>Alasan upgrade:</strong>
-          <ul>
-            <li>Security patch <code>[CVE / vulnerability]</code></li>
-            <li>Fitur baru untuk <code>[mis. notifikasi Telegram / fitur berikutnya]</code></li>
-            <li>End-of-life versi lama per <code>[tanggal]</code></li>
-          </ul>
-        </li>
-      </ul>
+      <div class="agenda-cards two-col">
+        <div class="agenda-card">
+          <div class="agenda-num">OS</div>
+          <div class="agenda-title">Minimum Android</div>
+          <div class="agenda-sub"><strong class="accent">Nougat (Android 7.0)</strong> — sebelumnya lebih rendah</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">Why</div>
+          <div class="agenda-title">Alasan Upgrade</div>
+          <div class="agenda-sub">Komponen yang kita gunakan mengharuskan upgrade — sayangnya tidak bisa dihindari</div>
+        </div>
+      </div>
     </section>
 
     <!-- ============== 2.2 DAMPAK ============== -->
     <section>
       <span class="session-tag">2 · SDK</span>
       <h2>Dampak ke fasilitator / pengguna</h2>
-      <ul>
-        <li><strong>Minimum OS version naik:</strong> Android <code>[X+]</code>, iOS <code>[X+]</code></li>
-        <li>Pengguna di device lama perlu <strong>update OS atau ganti device</strong></li>
-        <li>Fasilitator perlu komunikasikan ke member ~<strong>[H-7]</strong> sebelum rilis</li>
-        <li>Tidak ada breaking change di flow fasilitator</li>
-      </ul>
-      <div class="callout">
-        <strong>Estimasi member terdampak:</strong> ~<code>[X%]</code> — data dari <code>[sumber]</code>
+      <div class="agenda-cards two-col">
+        <div class="agenda-card">
+          <div class="agenda-num">OS</div>
+          <div class="agenda-title">Minimum Version Naik</div>
+          <div class="agenda-sub">Android <strong class="accent">7.0 (Nougat)</strong> — hanya Android</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">HP</div>
+          <div class="agenda-title">Device Lama</div>
+          <div class="agenda-sub">Pengguna perlu <strong>update OS atau ganti device</strong></div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">App</div>
+          <div class="agenda-title">Versi Lama Masih Jalan</div>
+          <div class="agenda-sub">Selama tidak update aplikasi — tapi cepat atau lambat perlu update karena ada fitur baru atau perbaikan</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">Flow</div>
+          <div class="agenda-title">Tidak Ada Breaking</div>
+          <div class="agenda-sub">Tidak ada breaking change di flow fasilitator</div>
+        </div>
       </div>
-    </section>
-
-    <!-- ============== 2.3 TIMELINE MIGRASI ============== -->
-    <section>
-      <span class="session-tag">2 · SDK</span>
-      <h2>Timeline migrasi</h2>
-      <table>
-        <thead>
-          <tr><th>Tanggal</th><th>Aktivitas</th></tr>
-        </thead>
-        <tbody>
-          <tr><td><span class="todo">TBD</span></td><td>Internal QA di versi baru</td></tr>
-          <tr><td><span class="todo">TBD</span></td><td>Soft rollout ke beta tester</td></tr>
-          <tr><td><span class="todo">TBD</span></td><td>Pengumuman ke seluruh member</td></tr>
-          <tr><td><span class="todo accent">TBD</span></td><td><strong>Rilis resmi</strong></td></tr>
-          <tr><td><span class="todo">TBD</span></td><td>Versi lama dimatikan</td></tr>
-        </tbody>
-      </table>
-      <p class="caption">Action item fasilitator: broadcast ke grup pakai template pesan di <code>[link]</code></p>
     </section>
 
     <!-- ============== SECTION 3 COVER ============== -->
@@ -609,17 +887,29 @@
     <section>
       <span class="session-tag">3 · Telegram</span>
       <h2>Apa yang dirilis?</h2>
-      <ul>
-        <li>Member &amp; fasilitator bisa <strong>terima notifikasi lewat bot Telegram</strong></li>
-        <li>Notifikasi yang didukung di versi pertama:
-          <ul>
-            <li>Pengingat jadwal sesi (H-1 dan H-jam)</li>
-            <li>Perubahan jadwal / reschedule</li>
-            <li>Kehadiran ter-update</li>
-            <li>Pengumuman grup dari fasilitator</li>
-          </ul>
-        </li>
-      </ul>
+      <p class="lede">Member &amp; fasilitator bisa <strong>terima notifikasi lewat bot Telegram</strong>. Notifikasi yang akan didukung dalam waktu dekat:</p>
+      <div class="agenda-cards four-col">
+        <div class="agenda-card">
+          <div class="agenda-num">H-1</div>
+          <div class="agenda-title">Pengingat Hangout</div>
+          <div class="agenda-sub">Sehari sebelum sesi berlangsung</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">Hari H</div>
+          <div class="agenda-title">Hangout</div>
+          <div class="agenda-sub">Notifikasi saat hari pelaksanaan</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">Hari H</div>
+          <div class="agenda-title">Kuis Dibuka</div>
+          <div class="agenda-sub">Saat kuis resmi bisa dikerjakan</div>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">Last</div>
+          <div class="agenda-title">Hari Terakhir Kuis</div>
+          <div class="agenda-sub">Reminder sebelum kuis ditutup</div>
+        </div>
+      </div>
       <div class="callout">
         <strong>Alasan Telegram:</strong> reach tinggi, delivery reliable, gratis, push-nya tidak tergantung battery optimization HP.
       </div>
@@ -629,56 +919,28 @@
     <section>
       <span class="session-tag">3 · Telegram</span>
       <h2>Cara aktivasi (untuk member)</h2>
-      <ol>
-        <li>Buka app ngeShare → Profil → <strong>Notifikasi Telegram</strong></li>
-        <li>Klik tombol <strong>Hubungkan Telegram</strong> → buka deep link ke bot</li>
-        <li>Kirim <code>/start</code> ke bot <code>[@ngeshare_bot]</code></li>
-        <li>Selesai — notifikasi langsung aktif</li>
-      </ol>
-      <p class="caption">Fasilitator bantu member yang kesulitan di H-1 rilis.</p>
-    </section>
-
-    <!-- ============== 3.3 UNTUK FASILITATOR ============== -->
-    <section>
-      <span class="session-tag">3 · Telegram</span>
-      <h2>Untuk fasilitator: apa yang berubah?</h2>
-      <ul>
-        <li>Fitur <strong>Broadcast Grup</strong> sekarang auto-kirim ke Telegram member yang sudah konek</li>
-        <li>Pengingat sesi <strong>tidak perlu manual</strong> lagi — sistem kirim otomatis</li>
-        <li>Dashboard: bisa lihat berapa member di grup yang sudah konek Telegram</li>
-      </ul>
-      <div class="callout">
-        <strong>Catatan:</strong> notifikasi in-app tetap jalan. Telegram = channel tambahan, bukan pengganti.
+      <div class="wizard">
+        <div class="wizard-step">
+          <div class="wizard-circle">1</div>
+          <div class="wizard-label">Buka app ngeShare → Profil → <strong>Notifikasi Telegram</strong></div>
+        </div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step">
+          <div class="wizard-circle">2</div>
+          <div class="wizard-label">Klik <strong>Hubungkan Telegram</strong> → buka deep link ke bot</div>
+        </div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step">
+          <div class="wizard-circle">3</div>
+          <div class="wizard-label">Kirim <code>/start</code> ke bot <code>[@ngeshare_bot]</code></div>
+        </div>
+        <div class="wizard-line"></div>
+        <div class="wizard-step">
+          <div class="wizard-circle done">&#10003;</div>
+          <div class="wizard-label"><strong>Selesai</strong> — notifikasi langsung aktif</div>
+        </div>
       </div>
-    </section>
-
-    <!-- ============== 3.4 TIMELINE RILIS ============== -->
-    <section>
-      <span class="session-tag">3 · Telegram</span>
-      <h2>Timeline rilis Telegram</h2>
-      <ul>
-        <li><span class="todo">TBD</span> — Dokumentasi internal &amp; training singkat fasilitator</li>
-        <li><span class="todo">TBD</span> — Soft launch di <code>[X grup pilot]</code></li>
-        <li><span class="todo accent">TBD</span> — Rilis umum</li>
-        <li><span class="todo">TBD</span> — Review metrics (delivery rate, opt-in %)</li>
-      </ul>
-    </section>
-
-    <!-- ============== ACTION ITEMS ============== -->
-    <section>
-      <span class="session-tag">Ringkasan</span>
-      <h2>Ringkasan &amp; Action Items</h2>
-      <table class="compact">
-        <thead>
-          <tr><th>#</th><th>Item</th><th>PIC</th><th>Deadline</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>1</td><td>Sebar link open volunteer</td><td>semua fasilitator</td><td>19 April 2026</td></tr>
-          <tr><td>2</td><td>Broadcast info kenaikan SDK</td><td>semua fasilitator</td><td><span class="todo">TBD</span></td></tr>
-          <tr><td>3</td><td>Coba aktivasi Telegram di grup</td><td>semua fasilitator</td><td><span class="todo">TBD</span></td></tr>
-          <tr><td>4</td><td>Kumpulkan feedback &amp; report bug</td><td>tim teknis</td><td>ongoing</td></tr>
-        </tbody>
-      </table>
+      <p class="caption">Fasilitator bantu member yang kesulitan di H-1 rilis.</p>
     </section>
 
     <!-- ============== Q&A ============== -->
@@ -693,7 +955,7 @@
         <div
           class="hero-media"
           aria-hidden="true"
-          style="background-image:url('https://images.unsplash.com/photo-1515169067868-5387ec356754?auto=format&fit=crop&w=1200&q=80');"
+          style="background-image:url('https://images.unsplash.com/photo-1542816417-0983c9c9ad53?auto=format&fit=crop&w=1200&q=80');"
         ></div>
       </div>
     </section>
