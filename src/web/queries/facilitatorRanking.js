@@ -3,6 +3,61 @@
 // - +3 for each member who became a facilitator (alumni conversion)
 // - +1 for each member (own members + descendant facilitators' members)
 
+// Common CTE fragments for reuse
+const DEVELOPERS_CTE = `
+    developers AS (
+      SELECT replace(source_id, 'user:', '')::text as user_id
+      FROM local_edges
+      WHERE type = 'HAS_ROLE' AND label = 'developer'
+    )`;
+
+const TEST_GROUPS_CTE = `
+    test_groups AS (
+      SELECT replace(id, 'group:', '') as group_id
+      FROM local_nodes
+      WHERE properties->>'is_test' = 'true'
+    )`;
+
+const ACTIVE_MEMBERS_CTE = `
+    active_members AS (
+      SELECT DISTINCT "userId"
+      FROM "UserHangoutGroupAttendance"
+    )`;
+
+// Alumni: must have been a Hijrah MEMBER first, then became FACILITATOR after.
+// Also excludes cases where the person was already a FACILITATOR before their MEMBER joinedAt (circular lineage fix).
+const ALUMNI_CTE = `
+    alumni AS (
+      SELECT DISTINCT
+        m."userId" as alumni_id,
+        m."hangoutGroupId" as origin_group_id,
+        f."userId" as mentor_facilitator_id
+      FROM "UserHangoutGroup" m
+      JOIN "HangoutGroup" hg_hijrah ON m."hangoutGroupId" = hg_hijrah.id
+      JOIN "Hangout" h_hijrah ON hg_hijrah."hangoutId" = h_hijrah.id
+      JOIN "UserHangoutGroup" f
+        ON m."hangoutGroupId" = f."hangoutGroupId"
+        AND f."hangoutGroupRole" = 'FACILITATOR'
+      WHERE h_hijrah.name = 'Ngeshare Sesi Hijrah'
+        AND m."hangoutGroupRole" = 'MEMBER'
+        AND m."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
+        AND f."userId" NOT IN (SELECT user_id FROM developers)
+        AND m."userId" IN (SELECT "userId" FROM active_members)
+        AND (
+          SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
+          WHERE fac."userId" = m."userId"
+            AND fac."hangoutGroupRole" = 'FACILITATOR'
+        ) > m."joinedAt"
+        -- Fix circular lineage: exclude if they had a FACILITATOR role BEFORE their MEMBER joinedAt
+        AND NOT EXISTS (
+          SELECT 1 FROM "UserHangoutGroup" prior_fac
+          WHERE prior_fac."userId" = m."userId"
+            AND prior_fac."hangoutGroupRole" = 'FACILITATOR'
+            AND prior_fac."joinedAt" < m."joinedAt"
+        )
+    )`;
+
 /**
  * Get facilitator ranking with detailed breakdown
  * @param {Pool} pool - Database pool
@@ -13,28 +68,10 @@ export async function getFacilitatorRanking(pool, limit = 50) {
   const result = await pool.query(
     `
     WITH RECURSIVE
-    -- Step 0: Identify members with at least 1 attendance
-    active_members AS (
-      SELECT DISTINCT "userId"
-      FROM "UserHangoutGroupAttendance"
-    ),
-    -- Step 1: Identify alumni (members who became facilitators)
-    alumni AS (
-      SELECT DISTINCT
-        m."userId" as alumni_id,
-        m."hangoutGroupId" as origin_group_id,
-        f."userId" as mentor_facilitator_id
-      FROM "UserHangoutGroup" m
-      JOIN "UserHangoutGroup" f
-        ON m."hangoutGroupId" = f."hangoutGroupId"
-        AND f."hangoutGroupRole" = 'FACILITATOR'
-      WHERE m."hangoutGroupRole" = 'MEMBER'
-        AND (
-          SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
-          WHERE fac."userId" = m."userId"
-            AND fac."hangoutGroupRole" = 'FACILITATOR'
-        ) > m."joinedAt"
-    ),
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
+    ${ALUMNI_CTE},
     -- Step 2: Build lineage tree (facilitator -> descendant facilitators)
     lineage AS (
       -- Base: direct alumni
@@ -74,6 +111,8 @@ export async function getFacilitatorRanking(pool, limit = 50) {
       JOIN active_members am ON m."userId" = am."userId"
       WHERE f."hangoutGroupRole" = 'FACILITATOR'
         AND m."hangoutGroupRole" = 'MEMBER'
+        AND f."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
       GROUP BY f."userId"
     ),
     -- Step 5: Dedupe lineage (same descendant can be reached via multiple paths)
@@ -90,6 +129,8 @@ export async function getFacilitatorRanking(pool, limit = 50) {
       JOIN "UserHangoutGroup" f ON l.descendant_id = f."userId" AND f."hangoutGroupRole" = 'FACILITATOR'
       JOIN "UserHangoutGroup" m ON f."hangoutGroupId" = m."hangoutGroupId" AND m."hangoutGroupRole" = 'MEMBER'
       JOIN active_members am ON m."userId" = am."userId"
+      WHERE f."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
       GROUP BY l.root_facilitator
     ),
     -- Step 7: Count groups facilitated
@@ -99,6 +140,7 @@ export async function getFacilitatorRanking(pool, limit = 50) {
         COUNT(DISTINCT "hangoutGroupId") as group_count
       FROM "UserHangoutGroup"
       WHERE "hangoutGroupRole" = 'FACILITATOR'
+        AND "hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
       GROUP BY "userId"
     )
     -- Final ranking
@@ -113,7 +155,12 @@ export async function getFacilitatorRanking(pool, limit = 50) {
       COALESCE(d.member_count, 0) as descendant_members,
       COALESCE(o.member_count, 0) + COALESCE(d.member_count, 0) as member_points,
       COALESCE(a.score, 0) + COALESCE(o.member_count, 0) + COALESCE(d.member_count, 0) as total_score
-    FROM (SELECT DISTINCT "userId" FROM "UserHangoutGroup" WHERE "hangoutGroupRole" = 'FACILITATOR') fac
+    FROM (
+      SELECT DISTINCT "userId" FROM "UserHangoutGroup"
+      WHERE "hangoutGroupRole" = 'FACILITATOR'
+        AND "userId" NOT IN (SELECT user_id FROM developers)
+        AND "hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+    ) fac
     JOIN "User" u ON fac."userId" = u.id
     LEFT JOIN "UserProfile" up ON u.id = up."userId"
     LEFT JOIN alumni_score a ON fac."userId" = a.facilitator_id
@@ -141,12 +188,16 @@ export async function getFacilitatorLineage(pool, facilitatorId = null) {
 
   if (facilitatorId) {
     params.push(facilitatorId);
-    whereClause = 'WHERE mentor.id = $1 OR alumni.id = $1';
+    whereClause = 'WHERE mentor.id = $1 OR alumni_user.id = $1';
   }
 
   const result = await pool.query(
     `
-    WITH alumni AS (
+    WITH
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
+    alumni AS (
       SELECT DISTINCT
         m."userId" as alumni_id,
         f."userId" as mentor_id,
@@ -158,30 +209,43 @@ export async function getFacilitatorLineage(pool, facilitatorId = null) {
             AND fac."hangoutGroupRole" = 'FACILITATOR'
         ) as facilitator_joined
       FROM "UserHangoutGroup" m
+      JOIN "HangoutGroup" hg_hijrah ON m."hangoutGroupId" = hg_hijrah.id
+      JOIN "Hangout" h_hijrah ON hg_hijrah."hangoutId" = h_hijrah.id
       JOIN "UserHangoutGroup" f
         ON m."hangoutGroupId" = f."hangoutGroupId"
         AND f."hangoutGroupRole" = 'FACILITATOR'
-      WHERE m."hangoutGroupRole" = 'MEMBER'
+      WHERE h_hijrah.name = 'Ngeshare Sesi Hijrah'
+        AND m."hangoutGroupRole" = 'MEMBER'
+        AND m."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
+        AND f."userId" NOT IN (SELECT user_id FROM developers)
+        AND m."userId" IN (SELECT "userId" FROM active_members)
         AND (
           SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
           WHERE fac."userId" = m."userId"
             AND fac."hangoutGroupRole" = 'FACILITATOR'
         ) > m."joinedAt"
+        AND NOT EXISTS (
+          SELECT 1 FROM "UserHangoutGroup" prior_fac
+          WHERE prior_fac."userId" = m."userId"
+            AND prior_fac."hangoutGroupRole" = 'FACILITATOR'
+            AND prior_fac."joinedAt" < m."joinedAt"
+        )
     )
     SELECT
       mentor.id as mentor_id,
       mentor.email as mentor_email,
       COALESCE(mp."fullName", mentor.email) as mentor_name,
-      alumni.id as alumni_id,
-      alumni.email as alumni_email,
-      COALESCE(ap."fullName", alumni.email) as alumni_name,
+      alumni_user.id as alumni_id,
+      alumni_user.email as alumni_email,
+      COALESCE(ap."fullName", alumni_user.email) as alumni_name,
       a.member_joined,
       a.facilitator_joined
     FROM alumni a
     JOIN "User" mentor ON a.mentor_id = mentor.id
     LEFT JOIN "UserProfile" mp ON mentor.id = mp."userId"
-    JOIN "User" alumni ON a.alumni_id = alumni.id
-    LEFT JOIN "UserProfile" ap ON alumni.id = ap."userId"
+    JOIN "User" alumni_user ON a.alumni_id = alumni_user.id
+    LEFT JOIN "UserProfile" ap ON alumni_user.id = ap."userId"
     ${whereClause}
     ORDER BY a.facilitator_joined DESC
   `,
@@ -209,9 +273,11 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
   const facilitator = facilitatorResult.rows[0];
   if (!facilitator) return null;
 
-  // Get groups facilitated
+  // Get groups facilitated (exclude test groups)
   const groupsResult = await pool.query(
     `
+    WITH
+    ${TEST_GROUPS_CTE}
     SELECT
       hg.id as group_id,
       hg.name as group_name,
@@ -220,6 +286,7 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
     JOIN "HangoutGroup" hg ON uhg."hangoutGroupId" = hg.id
     LEFT JOIN "Hangout" h ON hg."hangoutId" = h.id
     WHERE uhg."userId" = $1 AND uhg."hangoutGroupRole" = 'FACILITATOR'
+      AND uhg."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
     ORDER BY hg."createdAt" DESC
     `,
     [facilitatorId]
@@ -228,10 +295,10 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
   // Get own members (direct members in facilitator's groups) - deduplicated, with at least 1 attendance
   const ownMembersResult = await pool.query(
     `
-    WITH active_members AS (
-      SELECT DISTINCT "userId"
-      FROM "UserHangoutGroupAttendance"
-    ),
+    WITH
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
     member_raw AS (
       SELECT DISTINCT
         u.id as user_id,
@@ -250,6 +317,8 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
       WHERE f."userId" = $1
         AND f."hangoutGroupRole" = 'FACILITATOR'
         AND m."hangoutGroupRole" = 'MEMBER'
+        AND f."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
     )
     SELECT
       user_id,
@@ -268,7 +337,11 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
   // Get direct alumni (members who became facilitators) - deduplicated with aggregated groups
   const alumniResult = await pool.query(
     `
-    WITH alumni_raw AS (
+    WITH
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
+    alumni_raw AS (
       SELECT DISTINCT
         u.id as user_id,
         u.email,
@@ -284,18 +357,28 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
         ) as facilitator_joined
       FROM "UserHangoutGroup" f
       JOIN "UserHangoutGroup" m ON f."hangoutGroupId" = m."hangoutGroupId"
+      JOIN "HangoutGroup" hg ON f."hangoutGroupId" = hg.id
+      JOIN "Hangout" h ON hg."hangoutId" = h.id
       JOIN "User" u ON m."userId" = u.id
       LEFT JOIN "UserProfile" up ON u.id = up."userId"
-      JOIN "HangoutGroup" hg ON f."hangoutGroupId" = hg.id
-      LEFT JOIN "Hangout" h ON hg."hangoutId" = h.id
+      JOIN active_members am ON m."userId" = am."userId"
       WHERE f."userId" = $1
         AND f."hangoutGroupRole" = 'FACILITATOR'
         AND m."hangoutGroupRole" = 'MEMBER'
+        AND h.name = 'Ngeshare Sesi Hijrah'
+        AND f."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
         AND (
           SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
           WHERE fac."userId" = m."userId"
             AND fac."hangoutGroupRole" = 'FACILITATOR'
         ) > m."joinedAt"
+        AND NOT EXISTS (
+          SELECT 1 FROM "UserHangoutGroup" prior_fac
+          WHERE prior_fac."userId" = m."userId"
+            AND prior_fac."hangoutGroupRole" = 'FACILITATOR'
+            AND prior_fac."joinedAt" < m."joinedAt"
+        )
     )
     SELECT
       user_id,
@@ -316,20 +399,36 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
   const descendantsResult = await pool.query(
     `
     WITH RECURSIVE
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
     alumni AS (
       SELECT DISTINCT
         m."userId" as alumni_id,
         f."userId" as mentor_id
       FROM "UserHangoutGroup" m
+      JOIN "HangoutGroup" hg_hijrah ON m."hangoutGroupId" = hg_hijrah.id
+      JOIN "Hangout" h_hijrah ON hg_hijrah."hangoutId" = h_hijrah.id
       JOIN "UserHangoutGroup" f
         ON m."hangoutGroupId" = f."hangoutGroupId"
         AND f."hangoutGroupRole" = 'FACILITATOR'
-      WHERE m."hangoutGroupRole" = 'MEMBER'
+      WHERE h_hijrah.name = 'Ngeshare Sesi Hijrah'
+        AND m."hangoutGroupRole" = 'MEMBER'
+        AND m."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
+        AND f."userId" NOT IN (SELECT user_id FROM developers)
+        AND m."userId" IN (SELECT "userId" FROM active_members)
         AND (
           SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
           WHERE fac."userId" = m."userId"
             AND fac."hangoutGroupRole" = 'FACILITATOR'
         ) > m."joinedAt"
+        AND NOT EXISTS (
+          SELECT 1 FROM "UserHangoutGroup" prior_fac
+          WHERE prior_fac."userId" = m."userId"
+            AND prior_fac."hangoutGroupRole" = 'FACILITATOR'
+            AND prior_fac."joinedAt" < m."joinedAt"
+        )
     ),
     lineage AS (
       SELECT
@@ -375,24 +474,36 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
   const descendantMembersResult = await pool.query(
     `
     WITH RECURSIVE
-    active_members AS (
-      SELECT DISTINCT "userId"
-      FROM "UserHangoutGroupAttendance"
-    ),
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
     alumni AS (
       SELECT DISTINCT
         m."userId" as alumni_id,
         f."userId" as mentor_id
       FROM "UserHangoutGroup" m
+      JOIN "HangoutGroup" hg_hijrah ON m."hangoutGroupId" = hg_hijrah.id
+      JOIN "Hangout" h_hijrah ON hg_hijrah."hangoutId" = h_hijrah.id
       JOIN "UserHangoutGroup" f
         ON m."hangoutGroupId" = f."hangoutGroupId"
         AND f."hangoutGroupRole" = 'FACILITATOR'
-      WHERE m."hangoutGroupRole" = 'MEMBER'
+      WHERE h_hijrah.name = 'Ngeshare Sesi Hijrah'
+        AND m."hangoutGroupRole" = 'MEMBER'
+        AND m."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
+        AND f."userId" NOT IN (SELECT user_id FROM developers)
+        AND m."userId" IN (SELECT "userId" FROM active_members)
         AND (
           SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
           WHERE fac."userId" = m."userId"
             AND fac."hangoutGroupRole" = 'FACILITATOR'
         ) > m."joinedAt"
+        AND NOT EXISTS (
+          SELECT 1 FROM "UserHangoutGroup" prior_fac
+          WHERE prior_fac."userId" = m."userId"
+            AND prior_fac."hangoutGroupRole" = 'FACILITATOR'
+            AND prior_fac."joinedAt" < m."joinedAt"
+        )
     ),
     lineage AS (
       SELECT mentor_id as root, alumni_id as descendant_id, 1 as depth
@@ -424,6 +535,8 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
       LEFT JOIN "UserProfile" mp ON member_user.id = mp."userId"
       JOIN "HangoutGroup" hg ON f."hangoutGroupId" = hg.id
       JOIN active_members am ON m."userId" = am."userId"
+      WHERE f."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
       GROUP BY desc_user.email, dp."fullName", l.depth, member_user.id, member_user.email, mp."fullName"
     )
     SELECT * FROM member_details
@@ -436,24 +549,36 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
   const summaryResult = await pool.query(
     `
     WITH RECURSIVE
-    active_members AS (
-      SELECT DISTINCT "userId"
-      FROM "UserHangoutGroupAttendance"
-    ),
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
     alumni AS (
       SELECT DISTINCT
         m."userId" as alumni_id,
         f."userId" as mentor_facilitator_id
       FROM "UserHangoutGroup" m
+      JOIN "HangoutGroup" hg_hijrah ON m."hangoutGroupId" = hg_hijrah.id
+      JOIN "Hangout" h_hijrah ON hg_hijrah."hangoutId" = h_hijrah.id
       JOIN "UserHangoutGroup" f
         ON m."hangoutGroupId" = f."hangoutGroupId"
         AND f."hangoutGroupRole" = 'FACILITATOR'
-      WHERE m."hangoutGroupRole" = 'MEMBER'
+      WHERE h_hijrah.name = 'Ngeshare Sesi Hijrah'
+        AND m."hangoutGroupRole" = 'MEMBER'
+        AND m."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
+        AND f."userId" NOT IN (SELECT user_id FROM developers)
+        AND m."userId" IN (SELECT "userId" FROM active_members)
         AND (
           SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
           WHERE fac."userId" = m."userId"
             AND fac."hangoutGroupRole" = 'FACILITATOR'
         ) > m."joinedAt"
+        AND NOT EXISTS (
+          SELECT 1 FROM "UserHangoutGroup" prior_fac
+          WHERE prior_fac."userId" = m."userId"
+            AND prior_fac."hangoutGroupRole" = 'FACILITATOR'
+            AND prior_fac."joinedAt" < m."joinedAt"
+        )
     ),
     lineage AS (
       SELECT mentor_facilitator_id as root, alumni_id as descendant_id, 1 as depth
@@ -472,6 +597,8 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
       JOIN "UserHangoutGroup" m ON f."hangoutGroupId" = m."hangoutGroupId"
       JOIN active_members am ON m."userId" = am."userId"
       WHERE f."userId" = $1 AND f."hangoutGroupRole" = 'FACILITATOR' AND m."hangoutGroupRole" = 'MEMBER'
+        AND f."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
     ),
     direct_alumni AS (
       SELECT COUNT(DISTINCT alumni_id) as cnt FROM alumni WHERE mentor_facilitator_id = $1
@@ -482,6 +609,8 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
       JOIN "UserHangoutGroup" f ON l.descendant_id = f."userId" AND f."hangoutGroupRole" = 'FACILITATOR'
       JOIN "UserHangoutGroup" m ON f."hangoutGroupId" = m."hangoutGroupId" AND m."hangoutGroupRole" = 'MEMBER'
       JOIN active_members am ON m."userId" = am."userId"
+      WHERE f."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
     )
     SELECT
       (SELECT cnt FROM own_members) as own_members_count,
@@ -528,21 +657,48 @@ export async function getFacilitatorDetails(pool, facilitatorId) {
  */
 export async function getRankingSummary(pool) {
   const result = await pool.query(`
-    WITH alumni AS (
+    WITH
+    ${DEVELOPERS_CTE},
+    ${TEST_GROUPS_CTE},
+    ${ACTIVE_MEMBERS_CTE},
+    alumni AS (
       SELECT DISTINCT m."userId" as alumni_id
       FROM "UserHangoutGroup" m
+      JOIN "HangoutGroup" hg_hijrah ON m."hangoutGroupId" = hg_hijrah.id
+      JOIN "Hangout" h_hijrah ON hg_hijrah."hangoutId" = h_hijrah.id
       WHERE m."hangoutGroupRole" = 'MEMBER'
+        AND h_hijrah.name = 'Ngeshare Sesi Hijrah'
+        AND m."hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+        AND m."userId" NOT IN (SELECT user_id FROM developers)
+        AND m."userId" IN (SELECT "userId" FROM active_members)
         AND (
           SELECT MIN(fac."joinedAt") FROM "UserHangoutGroup" fac
           WHERE fac."userId" = m."userId"
             AND fac."hangoutGroupRole" = 'FACILITATOR'
         ) > m."joinedAt"
+        AND NOT EXISTS (
+          SELECT 1 FROM "UserHangoutGroup" prior_fac
+          WHERE prior_fac."userId" = m."userId"
+            AND prior_fac."hangoutGroupRole" = 'FACILITATOR'
+            AND prior_fac."joinedAt" < m."joinedAt"
+        )
     )
     SELECT
-      (SELECT COUNT(DISTINCT "userId") FROM "UserHangoutGroup" WHERE "hangoutGroupRole" = 'FACILITATOR') as total_facilitators,
+      (SELECT COUNT(DISTINCT "userId") FROM "UserHangoutGroup"
+       WHERE "hangoutGroupRole" = 'FACILITATOR'
+         AND "userId" NOT IN (SELECT user_id FROM developers)
+         AND "hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+      ) as total_facilitators,
       (SELECT COUNT(*) FROM alumni) as total_alumni,
-      (SELECT COUNT(DISTINCT "userId") FROM "UserHangoutGroup" WHERE "hangoutGroupRole" = 'MEMBER') as total_members,
-      (SELECT COUNT(DISTINCT "hangoutGroupId") FROM "UserHangoutGroup" WHERE "hangoutGroupRole" = 'FACILITATOR') as total_groups
+      (SELECT COUNT(DISTINCT "userId") FROM "UserHangoutGroup"
+       WHERE "hangoutGroupRole" = 'MEMBER'
+         AND "userId" NOT IN (SELECT user_id FROM developers)
+         AND "hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+      ) as total_members,
+      (SELECT COUNT(DISTINCT "hangoutGroupId") FROM "UserHangoutGroup"
+       WHERE "hangoutGroupRole" = 'FACILITATOR'
+         AND "hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+      ) as total_groups
   `);
 
   return result.rows[0];

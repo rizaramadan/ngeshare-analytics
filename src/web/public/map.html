@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facilitator Map - ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+    #map {
+      position: fixed;
+      top: 57px; /* navbar height */
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    .map-status {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--card-bg);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 0.875rem;
+      color: var(--gray-700);
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/funnel.html">Funnel</a>
+      <a href="/sankey.html">Member Flow</a>
+      <a href="/ranking.html">Ranking</a>
+      <a href="/rescue.html">Rescue List</a>
+      <a href="/facilitators.html">Facilitators</a>
+      <a href="/members.html">Members</a>
+      <a href="/map.html" class="active">Map</a>
+    </nav>
+  </header>
+
+  <div id="map"></div>
+  <div class="map-status" id="mapStatus">Loading facilitators...</div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    const map = L.map('map').setView([-2.5, 118], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 18
+    }).addTo(map);
+
+    const PROVINCE_COORDS = {
+      'Aceh': [4.69, 96.75], 'Sumatera Utara': [2.59, 98.71], 'Sumatera Barat': [-0.74, 100.80],
+      'Riau': [0.51, 101.45], 'Jambi': [-1.61, 103.61], 'Sumatera Selatan': [-3.32, 104.91],
+      'Bengkulu': [-3.80, 102.26], 'Lampung': [-5.02, 105.03], 'Kepulauan Bangka Belitung': [-2.74, 106.44],
+      'Kepulauan Riau': [1.07, 104.03], 'DKI Jakarta': [-6.21, 106.85], 'Jawa Barat': [-6.88, 107.61],
+      'Jawa Tengah': [-7.15, 110.14], 'DI Yogyakarta': [-7.80, 110.36], 'Jawa Timur': [-7.54, 112.24],
+      'Banten': [-6.44, 106.14], 'Bali': [-8.41, 115.19], 'Nusa Tenggara Barat': [-8.65, 117.36],
+      'Nusa Tenggara Timur': [-8.66, 121.08], 'Kalimantan Barat': [-0.13, 109.35],
+      'Kalimantan Tengah': [-1.49, 113.29], 'Kalimantan Selatan': [-3.09, 115.28],
+      'Kalimantan Timur': [1.21, 116.85], 'Kalimantan Utara': [3.07, 116.61],
+      'Sulawesi Utara': [0.63, 123.97], 'Sulawesi Tengah': [-1.43, 121.45],
+      'Sulawesi Selatan': [-3.67, 119.97], 'Sulawesi Tenggara': [-4.14, 122.17],
+      'Gorontalo': [0.69, 122.45], 'Sulawesi Barat': [-2.84, 119.23],
+      'Maluku': [-3.24, 130.15], 'Maluku Utara': [1.57, 127.81],
+      'Papua': [-4.27, 138.08], 'Papua Barat': [-1.34, 133.17],
+      'Papua Selatan': [-6.12, 140.31], 'Papua Tengah': [-3.59, 136.51],
+      'Papua Pegunungan': [-4.08, 138.95], 'Papua Barat Daya': [-1.85, 131.52]
+    };
+
+    const geocodeCache = {};
+
+    async function geocodeCity(city, province) {
+      const key = `${city}|${province}`;
+      if (geocodeCache[key]) return geocodeCache[key];
+      try {
+        const q = encodeURIComponent(`${city}, ${province}, Indonesia`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=id`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.length > 0) {
+          const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+          geocodeCache[key] = coords;
+          return coords;
+        }
+      } catch (e) {}
+      if (province && PROVINCE_COORDS[province]) {
+        geocodeCache[key] = PROVINCE_COORDS[province];
+        return PROVINCE_COORDS[province];
+      }
+      return null;
+    }
+
+    (async () => {
+      const statusEl = document.getElementById('mapStatus');
+
+      const res = await fetch('/api/facilitators');
+      const facilitators = await res.json();
+
+      if (facilitators.length === 0) {
+        statusEl.textContent = 'No facilitators found';
+        return;
+      }
+
+      // Group by city+province
+      const groups = {};
+      for (const f of facilitators) {
+        const key = `${f.city || ''}|${f.province || ''}`;
+        if (!groups[key]) groups[key] = { city: f.city, province: f.province, facilitators: [] };
+        groups[key].facilitators.push(f);
+      }
+
+      const entries = Object.values(groups).filter(g => g.city || g.province);
+      const markers = L.layerGroup().addTo(map);
+      let placed = 0;
+
+      for (let i = 0; i < entries.length; i++) {
+        const g = entries[i];
+        const cacheKey = `${g.city || ''}|${g.province || ''}`;
+        const wasCached = !!geocodeCache[cacheKey];
+        const coords = await geocodeCity(g.city || '', g.province || '');
+
+        if (coords) {
+          const count = g.facilitators.length;
+          const alumniCount = g.facilitators.filter(f => f.is_alumni).length;
+          const radius = Math.max(8, Math.min(35, 8 + count * 3));
+
+          const marker = L.circleMarker(coords, {
+            radius: radius,
+            fillColor: '#5BA3C6',
+            color: '#1E3A5F',
+            weight: 2,
+            opacity: 0.9,
+            fillOpacity: 0.6
+          });
+
+          const names = g.facilitators.slice(0, 8).map(f => f.name || f.email).join('<br>');
+          const more = count > 8 ? `<br><em>...and ${count - 8} more</em>` : '';
+          marker.bindPopup(`
+            <strong>${g.city || 'Unknown City'}${g.province ? ', ' + g.province : ''}</strong><br>
+            <b>${count}</b> facilitator${count !== 1 ? 's' : ''}${alumniCount > 0 ? ` (${alumniCount} alumni)` : ''}<hr style="margin:4px 0">
+            ${names}${more}
+          `);
+
+          markers.addLayer(marker);
+          placed++;
+        }
+
+        if (!wasCached && i < entries.length - 1) {
+          await new Promise(r => setTimeout(r, 1100));
+        }
+        statusEl.textContent = `Loading ${i + 1}/${entries.length} locations (${facilitators.length} facilitators)...`;
+      }
+
+      statusEl.textContent = `${facilitators.length} facilitators across ${placed} locations`;
+
+      if (placed > 0) {
+        const bounds = markers.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50] });
+      }
+
+      // Hide status after a few seconds
+      setTimeout(() => { statusEl.style.opacity = '0.6'; }, 3000);
+    })();
+  </script>
+</body>
+</html>

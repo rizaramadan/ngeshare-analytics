@@ -18,12 +18,13 @@ function parseConnectionUrl(url) {
   }
 }
 
-// Source config: prefer PRODUCTION_DB URL, fallback to individual vars
-const sourceFromUrl = parseConnectionUrl(process.env.PRODUCTION_DB);
+// Source config: prefer NEW_PRODUCTION_DB URL, fallback to PRODUCTION_DB, then individual vars
+const sourceUrl = process.env.NEW_PRODUCTION_DB || process.env.PRODUCTION_DB;
+const sourceFromUrl = parseConnectionUrl(sourceUrl);
 export const sourceConfig = sourceFromUrl
   ? {
-      ...sourceFromUrl,
-      ssl: { rejectUnauthorized: false }, // Production typically needs SSL
+      connectionString: sourceUrl, // Use full connection string to preserve query params (sslmode, channel_binding, options)
+      ssl: { rejectUnauthorized: false },
       max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,

@@ -143,6 +143,69 @@ CREATE TABLE IF NOT EXISTS public."UserHangoutGroupAttendance" (
         ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
+-- Table: Badge (referenced by UserBadgeNomination)
+CREATE TABLE IF NOT EXISTS public."Badge" (
+    id TEXT PRIMARY KEY NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    "circleProfileId" TEXT REFERENCES public."CircleProfile"
+        ON UPDATE CASCADE ON DELETE SET NULL,
+    "iconImageId" TEXT REFERENCES public."Image"
+        ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+-- Table: HangoutGroupQuestionAnswer
+CREATE TABLE IF NOT EXISTS public."HangoutGroupQuestionAnswer" (
+    id TEXT PRIMARY KEY NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    title TEXT NOT NULL,
+    "answerType" TEXT NOT NULL,
+    content TEXT
+);
+
+-- Table: HangoutGroupQuestion
+CREATE TABLE IF NOT EXISTS public."HangoutGroupQuestion" (
+    id TEXT PRIMARY KEY NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    status TEXT NOT NULL,
+    starred BOOLEAN DEFAULT false NOT NULL,
+    "hangoutGroupId" TEXT NOT NULL REFERENCES public."HangoutGroup"
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    "userHangoutGroupId" TEXT NOT NULL REFERENCES public."UserHangoutGroup"
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    "hangoutEpisodeId" TEXT NOT NULL REFERENCES public."HangoutEpisode"
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    "selectedAt" TIMESTAMP(3),
+    "answerId" TEXT REFERENCES public."HangoutGroupQuestionAnswer"
+        ON UPDATE CASCADE ON DELETE SET NULL,
+    archived BOOLEAN DEFAULT false NOT NULL
+);
+
+-- Table: UserBadgeNomination
+CREATE TABLE IF NOT EXISTS public."UserBadgeNomination" (
+    id TEXT PRIMARY KEY NOT NULL,
+    "createdAt" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "nominatedUserId" TEXT NOT NULL REFERENCES public."User"
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    "nominatorUserId" TEXT NOT NULL REFERENCES public."User"
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    "badgeId" TEXT NOT NULL REFERENCES public."Badge"
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL,
+    "reviewedBy" TEXT REFERENCES public."User"
+        ON UPDATE CASCADE ON DELETE SET NULL,
+    "reviewedAt" TIMESTAMP(3),
+    "rejectionReason" TEXT
+);
+
 -- Table: sync_log (for audit trail)
 CREATE TABLE IF NOT EXISTS public.sync_log (
     id SERIAL PRIMARY KEY,
@@ -168,3 +231,52 @@ CREATE INDEX IF NOT EXISTS idx_attendance_group_attended
 -- Comments for documentation
 COMMENT ON TABLE public.sync_log IS 'Audit trail for all sync operations';
 COMMENT ON COLUMN public.sync_log.last_sync_timestamp IS 'The timestamp used to filter records during incremental sync';
+
+-- ============================================
+-- Knowledge Graph: local_nodes & local_edges
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.local_nodes (
+    id TEXT PRIMARY KEY NOT NULL,
+    type TEXT NOT NULL,
+    label TEXT NOT NULL,
+    properties JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    valid_from TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    valid_to TIMESTAMP(3),
+    fts tsvector GENERATED ALWAYS AS (
+        to_tsvector('indonesian', coalesce(label, '') || ' ' || coalesce(type, '') || ' ' || coalesce(properties::text, ''))
+    ) STORED
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_nodes_type ON public.local_nodes(type);
+CREATE INDEX IF NOT EXISTS idx_local_nodes_label ON public.local_nodes(label);
+CREATE INDEX IF NOT EXISTS idx_local_nodes_valid_from ON public.local_nodes(valid_from);
+CREATE INDEX IF NOT EXISTS idx_local_nodes_valid_to ON public.local_nodes(valid_to);
+CREATE INDEX IF NOT EXISTS idx_local_nodes_properties ON public.local_nodes USING GIN (properties);
+CREATE INDEX IF NOT EXISTS idx_local_nodes_fts ON public.local_nodes USING GIN (fts);
+
+CREATE TABLE IF NOT EXISTS public.local_edges (
+    id TEXT PRIMARY KEY NOT NULL,
+    source_id TEXT NOT NULL REFERENCES public.local_nodes(id),
+    target_id TEXT NOT NULL REFERENCES public.local_nodes(id),
+    type TEXT NOT NULL,
+    label TEXT,
+    properties JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    valid_from TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    valid_to TIMESTAMP(3),
+    fts tsvector GENERATED ALWAYS AS (
+        to_tsvector('indonesian', coalesce(label, '') || ' ' || coalesce(type, '') || ' ' || coalesce(properties::text, ''))
+    ) STORED
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_edges_source ON public.local_edges(source_id);
+CREATE INDEX IF NOT EXISTS idx_local_edges_target ON public.local_edges(target_id);
+CREATE INDEX IF NOT EXISTS idx_local_edges_type ON public.local_edges(type);
+CREATE INDEX IF NOT EXISTS idx_local_edges_valid_from ON public.local_edges(valid_from);
+CREATE INDEX IF NOT EXISTS idx_local_edges_valid_to ON public.local_edges(valid_to);
+CREATE INDEX IF NOT EXISTS idx_local_edges_source_type ON public.local_edges(source_id, type);
+CREATE INDEX IF NOT EXISTS idx_local_edges_target_type ON public.local_edges(target_id, type);
+CREATE INDEX IF NOT EXISTS idx_local_edges_properties ON public.local_edges USING GIN (properties);
+CREATE INDEX IF NOT EXISTS idx_local_edges_fts ON public.local_edges USING GIN (fts);

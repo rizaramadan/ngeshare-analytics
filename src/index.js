@@ -4,6 +4,7 @@ import 'dotenv/config';
 import { getSourcePool, getDestPool, closePools } from './db/pools.js';
 import { syncTable } from './sync/syncTable.js';
 import { SYNC_TABLES } from './sync/tableConfigs.js';
+import { populateGraph } from './graph/populateGraph.js';
 import { logger } from './utils/logger.js';
 
 async function main() {
@@ -50,6 +51,16 @@ async function main() {
       process.exitCode = 1;
     } else {
       logger.info('All tables synced successfully!');
+    }
+
+    // Populate knowledge graph from synced data
+    logger.info('');
+    logger.info('=== Populating Knowledge Graph ===');
+    try {
+      await populateGraph(destPool);
+      logger.info('Knowledge graph populated successfully!');
+    } catch (error) {
+      logger.error('Graph population failed:', error.message);
     }
   } catch (error) {
     logger.error('Fatal error during sync:', error.message);

@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Tim Teknis Fasilitator · 12 April 2026</title>
+
+  <!-- reveal.js core + theme (CDN) -->
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@5.1.0/dist/reset.css">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@5.1.0/dist/theme/black.css" id="theme">
+
+  <!-- ============================================================ -->
+  <!--  Design tokens — edit here for branding                     -->
+  <!-- ============================================================ -->
+  <style>
+    :root {
+      --accent: #166534;
+      --accent-soft: #dcfce7;
+      --muted: #64748b;
+      --ink: #0f172a;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #dbe4ee;
+      --shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+
+      --text-xs: 0.75em;
+      --text-sm: 0.85em;
+      --text-md: 0.9em;
+      --text-lg: 1.08em;
+      --h3-size: 0.92em;
+      --h2-size: 1.5em;
+      --h1-cover: 2.3em;
+      --h1-title: 2.65em;
+
+      --space-xs: 0.6em;
+      --space-sm: 0.8em;
+      --space-md: 1.4em;
+      --space-lg: 2em;
+
+      --track-tight: 0.05em;
+      --track-base: 0.08em;
+      --track-wide: 0.15em;
+      --radius: 18px;
+    }
+
+    .reveal {
+      background:
+        radial-gradient(circle at top left, rgba(22, 101, 52, 0.08), transparent 24%),
+        linear-gradient(180deg, #fbfdff, #f4f7fb);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      font-size: 34px;
+      color: var(--ink);
+    }
+
+    .reveal .slides > section {
+      text-align: left;
+    }
+
+    .reveal h1,
+    .reveal h2 {
+      text-transform: none;
+      letter-spacing: -0.02em;
+      font-weight: 700;
+    }
+
+    .reveal h2 {
+      font-size: var(--h2-size);
+      color: var(--ink);
+      margin: 0 0 var(--space-xs) 0;
+      padding-inline-end: clamp(8rem, 22%, 12rem);
+    }
+
+    .reveal .cols-2 h3 {
+      font-size: var(--h3-size);
+      color: var(--accent);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: var(--track-base);
+      margin: 0 0 var(--space-xs) 0;
+    }
+
+    .reveal section .accent  { color: var(--accent); }
+    .reveal section .muted   { color: var(--muted); }
+    .reveal section .caption { color: var(--muted); font-size: var(--text-xs); }
+    .reveal section .lede    { color: var(--accent); font-size: var(--text-md); margin-bottom: var(--space-sm); }
+    .reveal strong { color: inherit; }
+
+    .reveal ol > li::marker {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .reveal section.cover,
+    .reveal section.title {
+      text-align: left;
+    }
+
+    .reveal .hero,
+    .reveal .cover-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(240px, 0.95fr);
+      gap: 1.25em;
+      align-items: stretch;
+    }
+
+    .reveal .frame {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(219, 228, 238, 0.9);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .reveal .hero-copy,
+    .reveal .cover-copy {
+      padding: 1em 1.05em;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 420px;
+    }
+
+    .reveal .hero-copy h1,
+    .reveal .cover-copy h1 {
+      margin: 0 0 0.3em 0;
+      max-width: 12ch;
+      line-height: 1.08;
+      text-wrap: balance;
+    }
+
+    .reveal .cover-copy h1 {
+      font-size: var(--h1-cover);
+    }
+
+    .reveal .hero-copy h1 {
+      font-size: var(--h1-title);
+      background: linear-gradient(135deg, var(--ink), var(--accent));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    @supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+      .reveal .hero-copy h1 {
+        background: none;
+        color: var(--ink);
+      }
+    }
+
+    .reveal .hero-media,
+    .reveal .cover-media {
+      min-height: 420px;
+      border-radius: 24px;
+      overflow: hidden;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+      box-shadow: var(--shadow);
+    }
+
+    .reveal .hero-media::after,
+    .reveal .cover-media::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.36)),
+        linear-gradient(135deg, rgba(22, 101, 52, 0.12), rgba(255, 255, 255, 0));
+    }
+
+    .reveal .title-kicker,
+    .reveal section.cover .eyebrow {
+      color: var(--accent);
+      font-size: var(--text-xs);
+      letter-spacing: var(--track-wide);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 1.2em;
+    }
+
+    .reveal .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6em;
+      margin-top: var(--space-md);
+    }
+
+    .reveal .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.35em 0.8em;
+      font-size: var(--text-xs);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .reveal .section-note {
+      margin-top: 1.4em;
+      font-size: var(--text-sm);
+      color: var(--muted);
+      max-width: 28ch;
+      line-height: 1.5;
+    }
+
+    .reveal ul,
+    .reveal ol {
+      display: block;
+      padding-inline-start: 1.2em;
+      margin-left: 0;
+    }
+
+    .reveal li {
+      margin-bottom: 0.24em;
+      line-height: 1.42;
+    }
+
+    .reveal ul ul,
+    .reveal ol ol,
+    .reveal ul ol,
+    .reveal ol ul {
+      font-size: var(--text-sm);
+      margin-top: 0.15em;
+      line-height: 1.4;
+    }
+
+    .reveal .key-value {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      column-gap: 1em;
+      row-gap: 0.3em;
+      margin: 0 0 1em 0;
+      font-size: var(--text-sm);
+    }
+
+    .reveal .key-value dt {
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: var(--track-tight);
+      font-size: var(--text-xs);
+      align-self: center;
+    }
+
+    .reveal .key-value dd {
+      margin: 0;
+    }
+
+    .reveal .cols-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.4em;
+      margin-top: 0.6em;
+      text-align: left;
+    }
+
+    .reveal .cols-2 > div {
+      padding: 0.8em 0.9em;
+      background: rgba(255, 255, 255, 0.74);
+      border: 1px solid rgba(219, 228, 238, 0.8);
+      border-radius: 18px;
+    }
+
+    .reveal .cols-2 ul {
+      padding-inline-start: 1em;
+    }
+
+    .reveal .cols-2 li {
+      font-size: var(--text-sm);
+    }
+
+    .reveal table {
+      font-size: var(--text-sm);
+      border-collapse: collapse;
+      margin: 0;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .reveal table th {
+      background: #f0fdf4;
+      color: var(--accent);
+      padding: 0.5em 1em;
+      border-bottom: 2px solid rgba(22, 101, 52, 0.22);
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: var(--track-base);
+      font-size: var(--text-md);
+      font-weight: 700;
+    }
+
+    .reveal table td {
+      padding: 0.42em 1em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .reveal table.compact {
+      font-size: var(--text-xs);
+    }
+
+    .reveal table.compact th {
+      padding: 0.4em 0.8em;
+      font-size: var(--text-xs);
+    }
+
+    .reveal table.compact td {
+      padding: 0.3em 0.8em;
+    }
+
+    .reveal code {
+      background: #f1f5f9;
+      color: var(--accent);
+      padding: 0.1em 0.4em;
+      border-radius: 10px;
+      font-size: var(--text-sm);
+    }
+
+    .reveal .todo {
+      outline: 1px dashed var(--muted);
+      border-radius: 10px;
+      padding: 0 0.3em;
+      color: var(--muted);
+      font-size: var(--text-md);
+    }
+
+    .reveal .callout {
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      padding: 0.6em 0.9em;
+      margin: 0.75em 0 0 0;
+      font-size: var(--text-sm);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .reveal .session-tag {
+      position: absolute;
+      top: 14px;
+      right: 24px;
+      font-size: var(--text-xs);
+      color: var(--muted);
+      letter-spacing: normal;
+      text-transform: none;
+      font-weight: 600;
+    }
+
+    .reveal section.title .date {
+      color: var(--muted);
+      margin-top: 0;
+    }
+
+    .reveal section.title p.muted {
+      margin-top: var(--space-md);
+    }
+
+    .reveal section.title p.accent {
+      margin-top: var(--space-lg);
+      font-size: var(--text-lg);
+    }
+
+    .reveal .progress {
+      color: var(--accent);
+      height: 3px;
+    }
+
+    .reveal section:not(.title):not(.cover) {
+      padding: 0.85em 1em;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(22, 101, 52, 0.06), transparent 24%),
+        rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(219, 228, 238, 0.84);
+      box-shadow: var(--shadow);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal .slides section {
+        transition: none !important;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .reveal .hero,
+      .reveal .cover-grid,
+      .reveal .cols-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .reveal .hero-copy,
+      .reveal .cover-copy,
+      .reveal .hero-media,
+      .reveal .cover-media {
+        min-height: 260px;
+      }
+
+      .reveal h2 {
+        padding-inline-end: 0;
+      }
+
+      .reveal .session-tag {
+        position: static;
+        display: block;
+        margin-bottom: 0.6em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="reveal">
+  <div class="slides">
+
+    <!-- ============== TITLE ============== -->
+    <section class="title">
+      <div class="hero">
+        <div class="hero-copy frame">
+          <div class="title-kicker">ngeShare · Weekly Sync</div>
+          <h1>Meeting Tim Teknis Fasilitator</h1>
+          <div class="date">Minggu, 12 April 2026</div>
+          <p class="muted">Agenda ringan dengan tiga keputusan operasional untuk minggu ini.</p>
+          <div class="meta-row">
+            <span class="meta-chip">45 menit</span>
+            <span class="meta-chip">3 topik utama</span>
+            <span class="meta-chip">Fokus eksekusi</span>
+          </div>
+        </div>
+        <div
+          class="hero-media"
+          aria-hidden="true"
+          style="background-image:url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=1200&q=80');"
+        ></div>
+      </div>
+    </section>
+
+    <!-- ============== AGENDA ============== -->
+    <section>
+      <h2>Agenda</h2>
+      <ol>
+        <li>Open Volunteer — Beta Tester ngeShare Online</li>
+        <li>Pengumuman Kenaikan SDK</li>
+        <li>Rilis Fitur Notifikasi Telegram</li>
+      </ol>
+      <p class="caption">Q&amp;A di akhir tiap topik. Diskusi panjang → parkir ke follow-up.</p>
+    </section>
+
+    <!-- ============== SECTION 1 COVER ============== -->
+    <section class="cover">
+      <div class="cover-grid">
+        <div class="cover-copy frame">
+          <div class="eyebrow">Bagian 1 · Open Volunteer</div>
+          <h1 class="accent">Beta Tester ngeShare Online</h1>
+          <p class="section-note">Bagian ini menyiapkan orang yang tepat untuk menguji alur nyata sebelum rilis publik.</p>
+        </div>
+        <div
+          class="cover-media"
+          aria-hidden="true"
+          style="background-image:url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80');"
+        ></div>
+      </div>
+    </section>
+
+    <!-- ============== 1.1 KENAPA BUTUH ============== -->
+    <section>
+      <span class="session-tag">1 · Beta Tester</span>
+      <h2>Kenapa butuh beta tester?</h2>
+      <ul>
+        <li>ngeShare versi online mau masuk tahap <strong>uji pengguna nyata</strong> sebelum rilis umum</li>
+        <li>Target: temukan bug, friction UX, dan kasus edge di lapangan</li>
+        <li>Segmen yang dibutuhkan: <strong class="accent">fasilitator</strong> yang memenuhi ketentuan tertentu</li>
+      </ul>
+    </section>
+
+    <!-- ============== 1.2 ALUR KERJA ============== -->
+    <section>
+      <span class="session-tag">1 · Beta Tester</span>
+      <h2>Alur kerja beta tester</h2>
+      <p class="lede">Siklus terstruktur, bukan trial bebas:</p>
+      <ol>
+        <li><strong>Install / update</strong> saat ada build baru</li>
+        <li><strong>Coba</strong> sesuai skenario tes</li>
+        <li><strong>Laporkan</strong> temuan (butuh effort menyusun)</li>
+        <li>Tim dev tindak lanjuti → rilis update</li>
+        <li>Diinformasikan → balik ke langkah 1</li>
+      </ol>
+      <div class="callout">
+        <div><strong>Komitmen:</strong> 2–3 jam/minggu</div>
+        <div><strong>Sesi feedback:</strong> Sabtu 05:00 WIB · on-call maks. 2×/bulan</div>
+      </div>
+    </section>
+
+    <!-- ============== 1.3 CARA DAFTAR ============== -->
+    <section>
+      <span class="session-tag">1 · Beta Tester</span>
+      <h2>Cara daftar</h2>
+
+      <dl class="key-value">
+        <dt>Link</dt><dd><code>[URL form]</code></dd>
+        <dt>Deadline</dt><dd class="accent">19 April 2026</dd>
+      </dl>
+
+      <div class="cols-2">
+        <div>
+          <h3>Device</h3>
+          <ul>
+            <li><strong>HP</strong>: Android OS 8 atau iPhone iOS 14</li>
+            <li><strong>Laptop</strong>: Windows 10+ atau MacBook M-series</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Pengalaman HO</h3>
+          <ul>
+            <li>Pernah menjalankan HO dengan <strong>kedua device</strong></li>
+            <li>Sudah pernah <strong>memulai HO</strong> atau sedang aktif</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== SECTION 2 COVER ============== -->
+    <section class="cover">
+      <div class="cover-grid">
+        <div class="cover-copy frame">
+          <div class="eyebrow">Bagian 2 · Pengumuman</div>
+          <h1 class="accent">Kenaikan SDK</h1>
+          <p class="section-note">Fokusnya bukan detail teknis library, tapi dampak operasional dan timing komunikasi ke member.</p>
+        </div>
+        <div
+          class="cover-media"
+          aria-hidden="true"
+          style="background-image:url('https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80');"
+        ></div>
+      </div>
+    </section>
+
+    <!-- ============== 2.1 APA YG NAIK ============== -->
+    <section>
+      <span class="session-tag">2 · SDK</span>
+      <h2>Apa yang naik versi?</h2>
+      <ul>
+        <li><strong>SDK:</strong> <code>[nama SDK — mis. Flutter / React Native / Firebase]</code></li>
+        <li><strong>Dari versi:</strong> <code>[X.Y.Z]</code> → <strong class="accent">[A.B.C]</strong></li>
+        <li><strong>Alasan upgrade:</strong>
+          <ul>
+            <li>Security patch <code>[CVE / vulnerability]</code></li>
+            <li>Fitur baru untuk <code>[mis. notifikasi Telegram / fitur berikutnya]</code></li>
+            <li>End-of-life versi lama per <code>[tanggal]</code></li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ============== 2.2 DAMPAK ============== -->
+    <section>
+      <span class="session-tag">2 · SDK</span>
+      <h2>Dampak ke fasilitator / pengguna</h2>
+      <ul>
+        <li><strong>Minimum OS version naik:</strong> Android <code>[X+]</code>, iOS <code>[X+]</code></li>
+        <li>Pengguna di device lama perlu <strong>update OS atau ganti device</strong></li>
+        <li>Fasilitator perlu komunikasikan ke member ~<strong>[H-7]</strong> sebelum rilis</li>
+        <li>Tidak ada breaking change di flow fasilitator</li>
+      </ul>
+      <div class="callout">
+        <strong>Estimasi member terdampak:</strong> ~<code>[X%]</code> — data dari <code>[sumber]</code>
+      </div>
+    </section>
+
+    <!-- ============== 2.3 TIMELINE MIGRASI ============== -->
+    <section>
+      <span class="session-tag">2 · SDK</span>
+      <h2>Timeline migrasi</h2>
+      <table>
+        <thead>
+          <tr><th>Tanggal</th><th>Aktivitas</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="todo">TBD</span></td><td>Internal QA di versi baru</td></tr>
+          <tr><td><span class="todo">TBD</span></td><td>Soft rollout ke beta tester</td></tr>
+          <tr><td><span class="todo">TBD</span></td><td>Pengumuman ke seluruh member</td></tr>
+          <tr><td><span class="todo accent">TBD</span></td><td><strong>Rilis resmi</strong></td></tr>
+          <tr><td><span class="todo">TBD</span></td><td>Versi lama dimatikan</td></tr>
+        </tbody>
+      </table>
+      <p class="caption">Action item fasilitator: broadcast ke grup pakai template pesan di <code>[link]</code></p>
+    </section>
+
+    <!-- ============== SECTION 3 COVER ============== -->
+    <section class="cover">
+      <div class="cover-grid">
+        <div class="cover-copy frame">
+          <div class="eyebrow">Bagian 3 · Rilis Fitur</div>
+          <h1 class="accent">Notifikasi Telegram</h1>
+          <p class="section-note">Slide ini memperjelas nilai fitur baru dan perubahan ringan yang perlu dipahami fasilitator.</p>
+        </div>
+        <div
+          class="cover-media"
+          aria-hidden="true"
+          style="background-image:url('https://images.unsplash.com/photo-1611746872915-64382b5c76da?auto=format&fit=crop&w=1200&q=80');"
+        ></div>
+      </div>
+    </section>
+
+    <!-- ============== 3.1 APA YG DIRILIS ============== -->
+    <section>
+      <span class="session-tag">3 · Telegram</span>
+      <h2>Apa yang dirilis?</h2>
+      <ul>
+        <li>Member &amp; fasilitator bisa <strong>terima notifikasi lewat bot Telegram</strong></li>
+        <li>Notifikasi yang didukung di versi pertama:
+          <ul>
+            <li>Pengingat jadwal sesi (H-1 dan H-jam)</li>
+            <li>Perubahan jadwal / reschedule</li>
+            <li>Kehadiran ter-update</li>
+            <li>Pengumuman grup dari fasilitator</li>
+          </ul>
+        </li>
+      </ul>
+      <div class="callout">
+        <strong>Alasan Telegram:</strong> reach tinggi, delivery reliable, gratis, push-nya tidak tergantung battery optimization HP.
+      </div>
+    </section>
+
+    <!-- ============== 3.2 CARA AKTIVASI ============== -->
+    <section>
+      <span class="session-tag">3 · Telegram</span>
+      <h2>Cara aktivasi (untuk member)</h2>
+      <ol>
+        <li>Buka app ngeShare → Profil → <strong>Notifikasi Telegram</strong></li>
+        <li>Klik tombol <strong>Hubungkan Telegram</strong> → buka deep link ke bot</li>
+        <li>Kirim <code>/start</code> ke bot <code>[@ngeshare_bot]</code></li>
+        <li>Selesai — notifikasi langsung aktif</li>
+      </ol>
+      <p class="caption">Fasilitator bantu member yang kesulitan di H-1 rilis.</p>
+    </section>
+
+    <!-- ============== 3.3 UNTUK FASILITATOR ============== -->
+    <section>
+      <span class="session-tag">3 · Telegram</span>
+      <h2>Untuk fasilitator: apa yang berubah?</h2>
+      <ul>
+        <li>Fitur <strong>Broadcast Grup</strong> sekarang auto-kirim ke Telegram member yang sudah konek</li>
+        <li>Pengingat sesi <strong>tidak perlu manual</strong> lagi — sistem kirim otomatis</li>
+        <li>Dashboard: bisa lihat berapa member di grup yang sudah konek Telegram</li>
+      </ul>
+      <div class="callout">
+        <strong>Catatan:</strong> notifikasi in-app tetap jalan. Telegram = channel tambahan, bukan pengganti.
+      </div>
+    </section>
+
+    <!-- ============== 3.4 TIMELINE RILIS ============== -->
+    <section>
+      <span class="session-tag">3 · Telegram</span>
+      <h2>Timeline rilis Telegram</h2>
+      <ul>
+        <li><span class="todo">TBD</span> — Dokumentasi internal &amp; training singkat fasilitator</li>
+        <li><span class="todo">TBD</span> — Soft launch di <code>[X grup pilot]</code></li>
+        <li><span class="todo accent">TBD</span> — Rilis umum</li>
+        <li><span class="todo">TBD</span> — Review metrics (delivery rate, opt-in %)</li>
+      </ul>
+    </section>
+
+    <!-- ============== ACTION ITEMS ============== -->
+    <section>
+      <span class="session-tag">Ringkasan</span>
+      <h2>Ringkasan &amp; Action Items</h2>
+      <table class="compact">
+        <thead>
+          <tr><th>#</th><th>Item</th><th>PIC</th><th>Deadline</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td>Sebar link open volunteer</td><td>semua fasilitator</td><td>19 April 2026</td></tr>
+          <tr><td>2</td><td>Broadcast info kenaikan SDK</td><td>semua fasilitator</td><td><span class="todo">TBD</span></td></tr>
+          <tr><td>3</td><td>Coba aktivasi Telegram di grup</td><td>semua fasilitator</td><td><span class="todo">TBD</span></td></tr>
+          <tr><td>4</td><td>Kumpulkan feedback &amp; report bug</td><td>tim teknis</td><td>ongoing</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ============== Q&A ============== -->
+    <section class="title">
+      <div class="hero">
+        <div class="hero-copy frame">
+          <div class="title-kicker">Closing</div>
+          <h1>Diskusi &amp; Q&amp;A</h1>
+          <p class="muted">Topik yang butuh pembahasan panjang diparkir ke follow-up di grup tim teknis.</p>
+          <p class="accent"><strong>Terima kasih.</strong></p>
+        </div>
+        <div
+          class="hero-media"
+          aria-hidden="true"
+          style="background-image:url('https://images.unsplash.com/photo-1515169067868-5387ec356754?auto=format&fit=crop&w=1200&q=80');"
+        ></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="https://unpkg.com/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    transition: 'fade',
+    controls: false,
+    progress: true,
+    center: true,
+    slideNumber: 'c/t',
+  });
+</script>
+
+</body>
+</html>

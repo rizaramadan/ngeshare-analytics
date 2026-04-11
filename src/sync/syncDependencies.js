@@ -35,6 +35,67 @@ const TABLE_DEPENDENCIES = {
       ],
     },
   ],
+  HangoutGroupQuestion: [
+    {
+      fkColumn: 'userHangoutGroupId',
+      refTable: 'UserHangoutGroup',
+      refColumns: [
+        'id',
+        'createdAt',
+        'updatedAt',
+        'joinedAt',
+        'status',
+        'hangoutGroupRole',
+        'hangoutGroupId',
+        'userId',
+        'publicId',
+        'userEmail',
+        'orderId',
+      ],
+    },
+    {
+      fkColumn: 'hangoutGroupId',
+      refTable: 'HangoutGroup',
+      refColumns: [
+        'id',
+        'createdAt',
+        'updatedAt',
+        'name',
+        'description',
+        'status',
+        'day',
+        'time',
+        'hangoutId',
+        'imageId',
+        'endDate',
+        'startDate',
+        'city',
+        'province',
+      ],
+    },
+    {
+      fkColumn: 'hangoutEpisodeId',
+      refTable: 'HangoutEpisode',
+      refColumns: ['id', 'createdAt', 'updatedAt', 'name', 'description', 'hangoutId', 'order'],
+    },
+  ],
+  UserBadgeNomination: [
+    {
+      fkColumn: 'nominatedUserId',
+      refTable: 'User',
+      refColumns: ['id', 'createdAt', 'updatedAt', 'email', 'lastLogin', 'lastActive', 'deletedAt'],
+    },
+    {
+      fkColumn: 'nominatorUserId',
+      refTable: 'User',
+      refColumns: ['id', 'createdAt', 'updatedAt', 'email', 'lastLogin', 'lastActive', 'deletedAt'],
+    },
+    {
+      fkColumn: 'badgeId',
+      refTable: 'Badge',
+      refColumns: ['id', 'createdAt', 'updatedAt', 'name', 'description', 'circleProfileId', 'iconImageId'],
+    },
+  ],
   UserHangoutGroupAttendance: [
     {
       fkColumn: 'userId',

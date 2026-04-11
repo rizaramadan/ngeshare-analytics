@@ -8,12 +8,34 @@ import { getGroups, getGroupById, getGroupMembers, getRescueList, getCourseList 
 import { getFunnelStages, getFunnelConversions, getFunnelTimeline, getFunnelDropoff, getFunnelHealth } from '../queries/funnel.js';
 import { getMemberFlow, getMemberProgressionStats } from '../queries/sankey.js';
 import { getFacilitatorRanking, getFacilitatorLineage, getRankingSummary, getFacilitatorDetails } from '../queries/facilitatorRanking.js';
+import { getProvinces, getCities, getFacilitatorsByLocation } from '../queries/facilitatorLocation.js';
+import { getMemberProvinces, getMemberCities, getMembersByLocation } from '../queries/memberLocation.js';
 
 const router = Router();
 const { Pool } = pg;
 
 // Create connection pool for local database
 const pool = new Pool(destConfig);
+
+// Last sync info
+router.get('/last-sync', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT sync_completed_at, table_name, rows_synced
+      FROM sync_log
+      WHERE status = 'completed'
+      ORDER BY sync_completed_at DESC
+      LIMIT 1
+    `);
+    if (result.rows.length === 0) {
+      return res.json({ last_sync: null });
+    }
+    res.json({ last_sync: result.rows[0].sync_completed_at });
+  } catch (err) {
+    console.error('Error fetching last sync:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Dashboard metrics
 router.get('/metrics', async (req, res) => {
@@ -322,6 +344,135 @@ router.get('/export/ranking', async (req, res) => {
     res.send(csv);
   } catch (err) {
     console.error('Error exporting ranking:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Facilitator location endpoints
+router.get('/facilitators/provinces', async (req, res) => {
+  try {
+    const provinces = await getProvinces(pool);
+    res.json(provinces);
+  } catch (err) {
+    console.error('Error fetching provinces:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/facilitators/cities', async (req, res) => {
+  try {
+    const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
+    const cities = await getCities(pool, provinces);
+    res.json(cities);
+  } catch (err) {
+    console.error('Error fetching cities:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/facilitators', async (req, res) => {
+  try {
+    const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
+    const cities = req.query.cities ? req.query.cities.split(',') : [];
+    const facilitators = await getFacilitatorsByLocation(pool, { provinces, cities });
+    res.json(facilitators);
+  } catch (err) {
+    console.error('Error fetching facilitators:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CSV export - facilitators
+router.get('/export/facilitators', async (req, res) => {
+  try {
+    const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
+    const cities = req.query.cities ? req.query.cities.split(',') : [];
+    const facilitators = await getFacilitatorsByLocation(pool, { provinces, cities });
+
+    const headers = ['#', 'Name', 'Email', 'Phone', 'Province', 'City', 'Groups Facilitated', 'Members', 'Alumni'];
+    const rows = facilitators.map((f, i) => [
+      i + 1,
+      f.name || '',
+      f.email,
+      f.phone || '',
+      f.province || '',
+      f.city || '',
+      f.groups_facilitated,
+      f.member_count,
+      f.is_alumni ? 'Yes' : 'No'
+    ]);
+
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=facilitators.csv');
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting facilitators:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Member location endpoints
+router.get('/members/provinces', async (req, res) => {
+  try {
+    const provinces = await getMemberProvinces(pool);
+    res.json(provinces);
+  } catch (err) {
+    console.error('Error fetching member provinces:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/members/cities', async (req, res) => {
+  try {
+    const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
+    const cities = await getMemberCities(pool, provinces);
+    res.json(cities);
+  } catch (err) {
+    console.error('Error fetching member cities:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/members', async (req, res) => {
+  try {
+    const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
+    const cities = req.query.cities ? req.query.cities.split(',') : [];
+    const members = await getMembersByLocation(pool, { provinces, cities });
+    res.json(members);
+  } catch (err) {
+    console.error('Error fetching members:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CSV export - members
+router.get('/export/members', async (req, res) => {
+  try {
+    const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
+    const cities = req.query.cities ? req.query.cities.split(',') : [];
+    const members = await getMembersByLocation(pool, { provinces, cities });
+
+    const headers = ['#', 'Name', 'Email', 'Phone', 'Province', 'City', 'Groups Joined', 'Became Facilitator'];
+    const rows = members.map((m, i) => [
+      i + 1,
+      m.name || '',
+      m.email,
+      m.phone || '',
+      m.province || '',
+      m.city || '',
+      m.groups_joined,
+      m.became_facilitator ? 'Yes' : 'No'
+    ]);
+
+    const csv = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=members.csv');
+    res.send(csv);
+  } catch (err) {
+    console.error('Error exporting members:', err);
     res.status(500).json({ error: err.message });
   }
 });

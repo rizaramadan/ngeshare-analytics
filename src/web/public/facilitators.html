@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Facilitators - ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    #map {
+      height: 450px;
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      z-index: 0;
+    }
+    .map-container {
+      background: var(--card-bg);
+      border-radius: 0.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      overflow: hidden;
+    }
+    .map-container .map-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .map-container .map-header h3 {
+      font-size: 1rem;
+      color: var(--gray-700);
+    }
+    .map-loading {
+      font-size: 0.875rem;
+      color: var(--gray-500);
+    }
+    .filter-bar {
+      background: var(--card-bg);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      position: relative;
+      min-width: 200px;
+    }
+    .filter-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--gray-700);
+      margin-bottom: 0.25rem;
+    }
+    .multi-select-btn {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      background: var(--input-bg);
+      color: var(--gray-900);
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .multi-select-btn:hover { border-color: var(--primary); }
+    .multi-select-btn .arrow { font-size: 0.625rem; color: var(--gray-500); }
+    .multi-select-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 100;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .multi-select-dropdown.open { display: block; }
+    .multi-select-dropdown label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      margin: 0;
+    }
+    .multi-select-dropdown label:hover { background: var(--gray-50); }
+    .multi-select-dropdown input[type="checkbox"] { margin: 0; }
+    .badge-alumni {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #90EE90;
+      color: #228B22;
+    }
+    @media print {
+      .navbar, .filter-bar, .map-container, #printBtn, #exportBtn, #applyBtn, #clearBtn { display: none !important; }
+      .container { max-width: 100%; padding: 0; margin: 0; }
+      .metrics-grid { margin-bottom: 1rem; }
+      .metric-card { box-shadow: none; border: 1px solid #ccc; padding: 0.75rem; }
+      .metric-card .value { font-size: 1.5rem; }
+      .table-container { box-shadow: none; }
+      table { font-size: 0.75rem; }
+      th, td { padding: 0.4rem 0.5rem; }
+      body { font-size: 12px; }
+      .page-header { margin-bottom: 0.5rem; }
+      .print-subtitle { display: block !important; font-size: 0.875rem; color: #555; margin-bottom: 0.5rem; }
+    }
+    .print-subtitle { display: none; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/funnel.html">Funnel</a>
+      <a href="/sankey.html">Member Flow</a>
+      <a href="/ranking.html">Ranking</a>
+      <a href="/rescue.html">Rescue List</a>
+      <a href="/facilitators.html" class="active">Facilitators</a>
+      <a href="/members.html">Members</a>
+      <a href="/map.html">Map</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Facilitators by Location</h2>
+      <p>Browse facilitators by province and city</p>
+      <p class="print-subtitle" id="printSubtitle"></p>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Province</label>
+        <button class="multi-select-btn" id="provinceBtnToggle" type="button">
+          <span id="provinceLabel">All Provinces</span>
+          <span class="arrow">&#9660;</span>
+        </button>
+        <div class="multi-select-dropdown" id="provinceDropdown"></div>
+      </div>
+      <div class="filter-group">
+        <label>City</label>
+        <button class="multi-select-btn" id="cityBtnToggle" type="button">
+          <span id="cityLabel">All Cities</span>
+          <span class="arrow">&#9660;</span>
+        </button>
+        <div class="multi-select-dropdown" id="cityDropdown"></div>
+      </div>
+      <button class="btn btn-primary" id="applyBtn" type="button">Apply</button>
+      <button class="btn btn-secondary" id="clearBtn" type="button">Clear</button>
+      <a href="#" class="btn btn-secondary" id="exportBtn">Export CSV</a>
+      <button class="btn btn-secondary" id="printBtn" type="button">Print / PDF</button>
+    </div>
+
+    <div class="metrics-grid" id="summaryCards">
+      <div class="metric-card">
+        <div class="label">Total Facilitators</div>
+        <div class="value" id="totalFacilitators">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Provinces</div>
+        <div class="value" id="totalProvinces">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Cities</div>
+        <div class="value" id="totalCities">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Alumni</div>
+        <div class="value" id="totalAlumni">-</div>
+      </div>
+    </div>
+
+    <div class="map-container" id="mapContainer" style="display:none">
+      <div class="map-header">
+        <h3>Facilitator Map</h3>
+        <span class="map-loading" id="mapStatus">Loading map...</span>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <h3>Facilitator List</h3>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Province</th>
+            <th>City</th>
+            <th>Groups</th>
+            <th>Members</th>
+            <th>Alumni</th>
+          </tr>
+        </thead>
+        <tbody id="facilitatorTable">
+          <tr><td colspan="9" class="loading">Loading facilitators...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let allProvinces = [];
+    let allCities = [];
+    let selectedProvinces = [];
+    let selectedCities = [];
+
+    // --- Map setup (lazy init) ---
+    let map = null;
+    let mapMarkers = null;
+
+    function initMap() {
+      if (map) return;
+      map = L.map('map').setView([-2.5, 118], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 18
+      }).addTo(map);
+      mapMarkers = L.layerGroup().addTo(map);
+    }
+
+    // Province center coordinates (fallback when city geocoding fails)
+    const PROVINCE_COORDS = {
+      'Aceh': [4.69, 96.75], 'Sumatera Utara': [2.59, 98.71], 'Sumatera Barat': [-0.74, 100.80],
+      'Riau': [0.51, 101.45], 'Jambi': [-1.61, 103.61], 'Sumatera Selatan': [-3.32, 104.91],
+      'Bengkulu': [-3.80, 102.26], 'Lampung': [-5.02, 105.03], 'Kepulauan Bangka Belitung': [-2.74, 106.44],
+      'Kepulauan Riau': [1.07, 104.03], 'DKI Jakarta': [-6.21, 106.85], 'Jawa Barat': [-6.88, 107.61],
+      'Jawa Tengah': [-7.15, 110.14], 'DI Yogyakarta': [-7.80, 110.36], 'Jawa Timur': [-7.54, 112.24],
+      'Banten': [-6.44, 106.14], 'Bali': [-8.41, 115.19], 'Nusa Tenggara Barat': [-8.65, 117.36],
+      'Nusa Tenggara Timur': [-8.66, 121.08], 'Kalimantan Barat': [-0.13, 109.35],
+      'Kalimantan Tengah': [-1.49, 113.29], 'Kalimantan Selatan': [-3.09, 115.28],
+      'Kalimantan Timur': [1.21, 116.85], 'Kalimantan Utara': [3.07, 116.61],
+      'Sulawesi Utara': [0.63, 123.97], 'Sulawesi Tengah': [-1.43, 121.45],
+      'Sulawesi Selatan': [-3.67, 119.97], 'Sulawesi Tenggara': [-4.14, 122.17],
+      'Gorontalo': [0.69, 122.45], 'Sulawesi Barat': [-2.84, 119.23],
+      'Maluku': [-3.24, 130.15], 'Maluku Utara': [1.57, 127.81],
+      'Papua': [-4.27, 138.08], 'Papua Barat': [-1.34, 133.17],
+      'Papua Selatan': [-6.12, 140.31], 'Papua Tengah': [-3.59, 136.51],
+      'Papua Pegunungan': [-4.08, 138.95], 'Papua Barat Daya': [-1.85, 131.52]
+    };
+
+    // Geocode cache (city+province -> [lat, lng])
+    const geocodeCache = {};
+
+    async function geocodeCity(city, province) {
+      const key = `${city}|${province}`;
+      if (geocodeCache[key]) return geocodeCache[key];
+
+      try {
+        const q = encodeURIComponent(`${city}, ${province}, Indonesia`);
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=id`, {
+          headers: { 'Accept': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.length > 0) {
+          const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+          geocodeCache[key] = coords;
+          return coords;
+        }
+      } catch (e) {
+        // Nominatim failed, fall through to province fallback
+      }
+
+      // Fallback to province center
+      if (province && PROVINCE_COORDS[province]) {
+        geocodeCache[key] = PROVINCE_COORDS[province];
+        return PROVINCE_COORDS[province];
+      }
+      return null;
+    }
+
+    async function updateMap(facilitators) {
+      const container = document.getElementById('mapContainer');
+      const hasFilters = selectedProvinces.length > 0 || selectedCities.length > 0;
+
+      if (!hasFilters) {
+        container.style.display = 'none';
+        return;
+      }
+
+      container.style.display = '';
+      initMap();
+      // Leaflet needs a tick to measure the now-visible container
+      setTimeout(() => map.invalidateSize(), 0);
+      mapMarkers.clearLayers();
+      const statusEl = document.getElementById('mapStatus');
+      if (facilitators.length === 0) {
+        statusEl.textContent = 'No facilitators to show';
+        return;
+      }
+
+      // Group by city+province
+      const groups = {};
+      for (const f of facilitators) {
+        const key = `${f.city || ''}|${f.province || ''}`;
+        if (!groups[key]) groups[key] = { city: f.city, province: f.province, facilitators: [] };
+        groups[key].facilitators.push(f);
+      }
+
+      const entries = Object.values(groups).filter(g => g.city || g.province);
+      statusEl.textContent = `Geocoding ${entries.length} locations...`;
+
+      let placed = 0;
+      // Process geocoding with small delays to respect Nominatim rate limits
+      for (let i = 0; i < entries.length; i++) {
+        const g = entries[i];
+        const cacheKey = `${g.city || ''}|${g.province || ''}`;
+        const wasCached = !!geocodeCache[cacheKey];
+        const coords = await geocodeCity(g.city || '', g.province || '');
+        if (coords) {
+          const count = g.facilitators.length;
+          const alumniCount = g.facilitators.filter(f => f.is_alumni).length;
+          const radius = Math.max(8, Math.min(30, 8 + count * 3));
+
+          const marker = L.circleMarker(coords, {
+            radius: radius,
+            fillColor: '#5BA3C6',
+            color: '#1E3A5F',
+            weight: 2,
+            opacity: 0.9,
+            fillOpacity: 0.6
+          });
+
+          const names = g.facilitators.slice(0, 5).map(f => f.name || f.email).join('<br>');
+          const more = count > 5 ? `<br><em>...and ${count - 5} more</em>` : '';
+          marker.bindPopup(`
+            <strong>${g.city || 'Unknown City'}${g.province ? ', ' + g.province : ''}</strong><br>
+            <b>${count}</b> facilitator${count !== 1 ? 's' : ''}${alumniCount > 0 ? ` (${alumniCount} alumni)` : ''}<hr style="margin:4px 0">
+            ${names}${more}
+          `);
+
+          mapMarkers.addLayer(marker);
+          placed++;
+        }
+
+        // Rate limit: 1 request/sec for Nominatim (only for uncached requests)
+        if (!wasCached && i < entries.length - 1) {
+          await new Promise(r => setTimeout(r, 1100));
+        }
+        statusEl.textContent = `Geocoding ${i + 1}/${entries.length}...`;
+      }
+
+      statusEl.textContent = `${placed} location${placed !== 1 ? 's' : ''} shown`;
+
+      // Fit map bounds to markers
+      if (placed > 0) {
+        const bounds = mapMarkers.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [30, 30] });
+      }
+    }
+
+    // Toggle dropdown
+    function setupDropdown(btnId, dropdownId) {
+      const btn = document.getElementById(btnId);
+      const dropdown = document.getElementById(dropdownId);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Close other dropdowns
+        document.querySelectorAll('.multi-select-dropdown.open').forEach(d => {
+          if (d !== dropdown) d.classList.remove('open');
+        });
+        dropdown.classList.toggle('open');
+      });
+    }
+
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.multi-select-dropdown.open').forEach(d => d.classList.remove('open'));
+    });
+
+    document.querySelectorAll('.multi-select-dropdown').forEach(d => {
+      d.addEventListener('click', e => e.stopPropagation());
+    });
+
+    function renderCheckboxes(containerId, items, selectedArr) {
+      const container = document.getElementById(containerId);
+      if (items.length === 0) {
+        container.innerHTML = '<label style="color:var(--gray-500)">No options available</label>';
+        return;
+      }
+      container.innerHTML = items.map(item => `
+        <label>
+          <input type="checkbox" value="${item}" ${selectedArr.includes(item) ? 'checked' : ''}>
+          ${item}
+        </label>
+      `).join('');
+    }
+
+    function getCheckedValues(containerId) {
+      return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(cb => cb.value);
+    }
+
+    function updateLabel(labelId, selectedArr, allLabel) {
+      const el = document.getElementById(labelId);
+      if (selectedArr.length === 0) {
+        el.textContent = allLabel;
+      } else if (selectedArr.length <= 2) {
+        el.textContent = selectedArr.join(', ');
+      } else {
+        el.textContent = `${selectedArr.length} selected`;
+      }
+    }
+
+    async function loadProvinces() {
+      const res = await fetch('/api/facilitators/provinces');
+      allProvinces = await res.json();
+      renderCheckboxes('provinceDropdown', allProvinces, selectedProvinces);
+    }
+
+    async function loadCities() {
+      let url = '/api/facilitators/cities';
+      if (selectedProvinces.length > 0) {
+        url += '?provinces=' + selectedProvinces.map(encodeURIComponent).join(',');
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      allCities = data.map(d => d.city);
+      // Remove city selections that are no longer valid
+      selectedCities = selectedCities.filter(c => allCities.includes(c));
+      renderCheckboxes('cityDropdown', allCities, selectedCities);
+      updateLabel('cityLabel', selectedCities, 'All Cities');
+    }
+
+    // When province selection changes, update cities
+    document.getElementById('provinceDropdown').addEventListener('change', async () => {
+      selectedProvinces = getCheckedValues('provinceDropdown');
+      updateLabel('provinceLabel', selectedProvinces, 'All Provinces');
+      await loadCities();
+    });
+
+    document.getElementById('cityDropdown').addEventListener('change', () => {
+      selectedCities = getCheckedValues('cityDropdown');
+      updateLabel('cityLabel', selectedCities, 'All Cities');
+    });
+
+    async function loadFacilitators() {
+      const params = new URLSearchParams();
+      if (selectedProvinces.length > 0) params.set('provinces', selectedProvinces.join(','));
+      if (selectedCities.length > 0) params.set('cities', selectedCities.join(','));
+
+      const url = '/api/facilitators?' + params.toString();
+      const res = await fetch(url);
+      const data = await res.json();
+      renderFacilitators(data);
+      updateSummary(data);
+      updateExportLink(params);
+      updateMap(data);
+    }
+
+    function renderFacilitators(facilitators) {
+      const tbody = document.getElementById('facilitatorTable');
+      if (facilitators.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No facilitators found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = facilitators.map((f, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td><strong>${f.name || '-'}</strong></td>
+          <td>${f.email}</td>
+          <td>${f.phone || '-'}</td>
+          <td>${f.province || '-'}</td>
+          <td>${f.city || '-'}</td>
+          <td>${f.groups_facilitated}</td>
+          <td>${f.member_count}</td>
+          <td>${f.is_alumni ? '<span class="badge-alumni">Alumni</span>' : '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function updateSummary(facilitators) {
+      document.getElementById('totalFacilitators').textContent = facilitators.length;
+      const provinces = new Set(facilitators.map(f => f.province).filter(Boolean));
+      const cities = new Set(facilitators.map(f => f.city).filter(Boolean));
+      const alumni = facilitators.filter(f => f.is_alumni).length;
+      document.getElementById('totalProvinces').textContent = provinces.size;
+      document.getElementById('totalCities').textContent = cities.size;
+      document.getElementById('totalAlumni').textContent = alumni;
+    }
+
+    function updateExportLink(params) {
+      document.getElementById('exportBtn').href = '/api/export/facilitators?' + params.toString();
+    }
+
+    document.getElementById('printBtn').addEventListener('click', () => {
+      const parts = [];
+      if (selectedProvinces.length > 0) parts.push('Province: ' + selectedProvinces.join(', '));
+      if (selectedCities.length > 0) parts.push('City: ' + selectedCities.join(', '));
+      const subtitle = document.getElementById('printSubtitle');
+      subtitle.textContent = parts.length > 0 ? 'Filters: ' + parts.join(' | ') : 'All facilitators (no filter)';
+      subtitle.textContent += ' — Printed ' + new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+      window.print();
+    });
+
+    document.getElementById('applyBtn').addEventListener('click', loadFacilitators);
+
+    document.getElementById('clearBtn').addEventListener('click', async () => {
+      selectedProvinces = [];
+      selectedCities = [];
+      updateLabel('provinceLabel', [], 'All Provinces');
+      updateLabel('cityLabel', [], 'All Cities');
+      renderCheckboxes('provinceDropdown', allProvinces, []);
+      await loadCities();
+      await loadFacilitators();
+    });
+
+    // Initialize
+    setupDropdown('provinceBtnToggle', 'provinceDropdown');
+    setupDropdown('cityBtnToggle', 'cityDropdown');
+
+    (async () => {
+      await loadProvinces();
+      await loadCities();
+      await loadFacilitators();
+    })();
+  </script>
+</body>
+</html>

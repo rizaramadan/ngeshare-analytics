@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Members - ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .filter-bar {
+      background: var(--card-bg);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+      display: flex;
+      gap: 1rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .filter-group {
+      position: relative;
+      min-width: 200px;
+    }
+    .filter-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--gray-700);
+      margin-bottom: 0.25rem;
+    }
+    .multi-select-btn {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      background: var(--input-bg);
+      color: var(--gray-900);
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .multi-select-btn:hover { border-color: var(--primary); }
+    .multi-select-btn .arrow { font-size: 0.625rem; color: var(--gray-500); }
+    .multi-select-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--card-bg);
+      border: 1px solid var(--gray-300);
+      border-radius: 0.375rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 100;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+    .multi-select-dropdown.open { display: block; }
+    .multi-select-dropdown label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      margin: 0;
+    }
+    .multi-select-dropdown label:hover { background: var(--gray-50); }
+    .multi-select-dropdown input[type="checkbox"] { margin: 0; }
+    .badge-facilitator {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #87CEEB;
+      color: #0D1B2A;
+    }
+    @media print {
+      .navbar, .filter-bar, #printBtn, #exportBtn, #applyBtn, #clearBtn { display: none !important; }
+      .container { max-width: 100%; padding: 0; margin: 0; }
+      .metrics-grid { margin-bottom: 1rem; }
+      .metric-card { box-shadow: none; border: 1px solid #ccc; padding: 0.75rem; }
+      .metric-card .value { font-size: 1.5rem; }
+      .table-container { box-shadow: none; }
+      table { font-size: 0.75rem; }
+      th, td { padding: 0.4rem 0.5rem; }
+      body { font-size: 12px; }
+      .page-header { margin-bottom: 0.5rem; }
+      .print-subtitle { display: block !important; font-size: 0.875rem; color: #555; margin-bottom: 0.5rem; }
+    }
+    .print-subtitle { display: none; }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/funnel.html">Funnel</a>
+      <a href="/sankey.html">Member Flow</a>
+      <a href="/ranking.html">Ranking</a>
+      <a href="/rescue.html">Rescue List</a>
+      <a href="/facilitators.html">Facilitators</a>
+      <a href="/members.html" class="active">Members</a>
+      <a href="/map.html">Map</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Members by Location</h2>
+      <p>Browse members by province and city</p>
+      <p class="print-subtitle" id="printSubtitle"></p>
+    </div>
+
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>Province</label>
+        <button class="multi-select-btn" id="provinceBtnToggle" type="button">
+          <span id="provinceLabel">All Provinces</span>
+          <span class="arrow">&#9660;</span>
+        </button>
+        <div class="multi-select-dropdown" id="provinceDropdown"></div>
+      </div>
+      <div class="filter-group">
+        <label>City</label>
+        <button class="multi-select-btn" id="cityBtnToggle" type="button">
+          <span id="cityLabel">All Cities</span>
+          <span class="arrow">&#9660;</span>
+        </button>
+        <div class="multi-select-dropdown" id="cityDropdown"></div>
+      </div>
+      <button class="btn btn-primary" id="applyBtn" type="button">Apply</button>
+      <button class="btn btn-secondary" id="clearBtn" type="button">Clear</button>
+      <a href="#" class="btn btn-secondary" id="exportBtn">Export CSV</a>
+      <button class="btn btn-secondary" id="printBtn" type="button">Print / PDF</button>
+    </div>
+
+    <div class="metrics-grid" id="summaryCards">
+      <div class="metric-card">
+        <div class="label">Total Members</div>
+        <div class="value" id="totalMembers">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Provinces</div>
+        <div class="value" id="totalProvinces">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Cities</div>
+        <div class="value" id="totalCities">-</div>
+      </div>
+      <div class="metric-card">
+        <div class="label">Became Facilitator</div>
+        <div class="value" id="totalBecameFacilitator">-</div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <h3>Member List</h3>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Province</th>
+            <th>City</th>
+            <th>Groups</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="memberTable">
+          <tr><td colspan="8" class="loading">Loading members...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    let allProvinces = [];
+    let allCities = [];
+    let selectedProvinces = [];
+    let selectedCities = [];
+
+    // Toggle dropdown
+    function setupDropdown(btnId, dropdownId) {
+      const btn = document.getElementById(btnId);
+      const dropdown = document.getElementById(dropdownId);
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.multi-select-dropdown.open').forEach(d => {
+          if (d !== dropdown) d.classList.remove('open');
+        });
+        dropdown.classList.toggle('open');
+      });
+    }
+
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.multi-select-dropdown.open').forEach(d => d.classList.remove('open'));
+    });
+
+    document.querySelectorAll('.multi-select-dropdown').forEach(d => {
+      d.addEventListener('click', e => e.stopPropagation());
+    });
+
+    function renderCheckboxes(containerId, items, selectedArr) {
+      const container = document.getElementById(containerId);
+      if (items.length === 0) {
+        container.innerHTML = '<label style="color:var(--gray-500)">No options available</label>';
+        return;
+      }
+      container.innerHTML = items.map(item => `
+        <label>
+          <input type="checkbox" value="${item}" ${selectedArr.includes(item) ? 'checked' : ''}>
+          ${item}
+        </label>
+      `).join('');
+    }
+
+    function getCheckedValues(containerId) {
+      return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(cb => cb.value);
+    }
+
+    function updateLabel(labelId, selectedArr, allLabel) {
+      const el = document.getElementById(labelId);
+      if (selectedArr.length === 0) {
+        el.textContent = allLabel;
+      } else if (selectedArr.length <= 2) {
+        el.textContent = selectedArr.join(', ');
+      } else {
+        el.textContent = `${selectedArr.length} selected`;
+      }
+    }
+
+    async function loadProvinces() {
+      const res = await fetch('/api/members/provinces');
+      allProvinces = await res.json();
+      renderCheckboxes('provinceDropdown', allProvinces, selectedProvinces);
+    }
+
+    async function loadCities() {
+      let url = '/api/members/cities';
+      if (selectedProvinces.length > 0) {
+        url += '?provinces=' + selectedProvinces.map(encodeURIComponent).join(',');
+      }
+      const res = await fetch(url);
+      const data = await res.json();
+      allCities = data.map(d => d.city);
+      selectedCities = selectedCities.filter(c => allCities.includes(c));
+      renderCheckboxes('cityDropdown', allCities, selectedCities);
+      updateLabel('cityLabel', selectedCities, 'All Cities');
+    }
+
+    document.getElementById('provinceDropdown').addEventListener('change', async () => {
+      selectedProvinces = getCheckedValues('provinceDropdown');
+      updateLabel('provinceLabel', selectedProvinces, 'All Provinces');
+      await loadCities();
+    });
+
+    document.getElementById('cityDropdown').addEventListener('change', () => {
+      selectedCities = getCheckedValues('cityDropdown');
+      updateLabel('cityLabel', selectedCities, 'All Cities');
+    });
+
+    async function loadMembers() {
+      const params = new URLSearchParams();
+      if (selectedProvinces.length > 0) params.set('provinces', selectedProvinces.join(','));
+      if (selectedCities.length > 0) params.set('cities', selectedCities.join(','));
+
+      const url = '/api/members?' + params.toString();
+      const res = await fetch(url);
+      const data = await res.json();
+      renderMembers(data);
+      updateSummary(data);
+      updateExportLink(params);
+    }
+
+    function renderMembers(members) {
+      const tbody = document.getElementById('memberTable');
+      if (members.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No members found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = members.map((m, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td><strong>${m.name || '-'}</strong></td>
+          <td>${m.email}</td>
+          <td>${m.phone || '-'}</td>
+          <td>${m.province || '-'}</td>
+          <td>${m.city || '-'}</td>
+          <td>${m.groups_joined}</td>
+          <td>${m.became_facilitator ? '<span class="badge-facilitator">Facilitator</span>' : 'Member'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function updateSummary(members) {
+      document.getElementById('totalMembers').textContent = members.length;
+      const provinces = new Set(members.map(m => m.province).filter(Boolean));
+      const cities = new Set(members.map(m => m.city).filter(Boolean));
+      const becameFac = members.filter(m => m.became_facilitator).length;
+      document.getElementById('totalProvinces').textContent = provinces.size;
+      document.getElementById('totalCities').textContent = cities.size;
+      document.getElementById('totalBecameFacilitator').textContent = becameFac;
+    }
+
+    function updateExportLink(params) {
+      document.getElementById('exportBtn').href = '/api/export/members?' + params.toString();
+    }
+
+    document.getElementById('printBtn').addEventListener('click', () => {
+      const parts = [];
+      if (selectedProvinces.length > 0) parts.push('Province: ' + selectedProvinces.join(', '));
+      if (selectedCities.length > 0) parts.push('City: ' + selectedCities.join(', '));
+      const subtitle = document.getElementById('printSubtitle');
+      subtitle.textContent = parts.length > 0 ? 'Filters: ' + parts.join(' | ') : 'All members (no filter)';
+      subtitle.textContent += ' — Printed ' + new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+      window.print();
+    });
+
+    document.getElementById('applyBtn').addEventListener('click', loadMembers);
+
+    document.getElementById('clearBtn').addEventListener('click', async () => {
+      selectedProvinces = [];
+      selectedCities = [];
+      updateLabel('provinceLabel', [], 'All Provinces');
+      updateLabel('cityLabel', [], 'All Cities');
+      renderCheckboxes('provinceDropdown', allProvinces, []);
+      await loadCities();
+      await loadMembers();
+    });
+
+    // Initialize
+    setupDropdown('provinceBtnToggle', 'provinceDropdown');
+    setupDropdown('cityBtnToggle', 'cityDropdown');
+
+    (async () => {
+      await loadProvinces();
+      await loadCities();
+      await loadMembers();
+    })();
+  </script>
+</body>
+</html>
