@@ -409,6 +409,64 @@
       color: var(--ink);
     }
 
+    .reveal section.qna {
+      text-align: center;
+    }
+
+    .reveal section.qna .qna-inner {
+      padding: 2.2em 2em;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35em;
+      min-height: 440px;
+      background:
+        radial-gradient(circle at top, rgba(99, 102, 241, 0.12), transparent 55%),
+        radial-gradient(circle at bottom, rgba(167, 139, 250, 0.1), transparent 55%),
+        rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .reveal section.qna .eyebrow {
+      color: var(--accent);
+      font-family: "Comfortaa", sans-serif;
+      font-size: var(--text-xs);
+      letter-spacing: var(--track-wide);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-bottom: 0.4em;
+    }
+
+    .reveal section.qna h1 {
+      font-family: "Comfortaa", sans-serif;
+      font-size: 2.2em;
+      margin: 0.05em 0 0.3em;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      line-height: 1.1;
+    }
+
+    .reveal section.qna .qna-topic {
+      font-size: var(--text-lg);
+      color: var(--ink);
+      font-weight: 600;
+      margin: 0 0 0.8em;
+      max-width: 28ch;
+    }
+
+    .reveal section.qna .qna-note {
+      font-size: var(--text-sm);
+      color: var(--muted);
+      max-width: 36ch;
+      line-height: 1.5;
+      margin: 0;
+    }
+
     .reveal .wizard {
       display: flex;
       align-items: flex-start;
@@ -783,7 +841,7 @@
       <h2>Cara daftar</h2>
 
       <dl class="key-value">
-        <dt>Link</dt><dd><code>[URL form]</code></dd>
+        <dt>Link</dt><dd><a href="https://forms.gle/mvQAq4fGW9LiSfq29" target="_blank" rel="noopener"><code>forms.gle/mvQAq4fGW9LiSfq29</code></a></dd>
         <dt>Deadline</dt><dd class="accent">19 April 2026</dd>
       </dl>
 
@@ -802,6 +860,16 @@
             <li>Sudah pernah <strong>memulai HO</strong> atau sedang aktif</li>
           </ul>
         </div>
+      </div>
+    </section>
+
+    <!-- ============== Q&A SECTION 1 ============== -->
+    <section class="qna">
+      <div class="qna-inner">
+        <div class="eyebrow">Jeda · Tanya Jawab</div>
+        <h1>Q&amp;A Bagian 1</h1>
+        <p class="qna-topic">Open Volunteer — Beta Tester ngeShare Online</p>
+        <p class="qna-note">Diskusi hanya untuk topik Bagian 1. Pertanyaan di luar topik ini kita tampung dulu, dibahas di Q&amp;A penutup.</p>
       </div>
     </section>
 
@@ -864,6 +932,16 @@
           <div class="agenda-title">Tidak Ada Breaking</div>
           <div class="agenda-sub">Tidak ada breaking change di flow fasilitator</div>
         </div>
+      </div>
+    </section>
+
+    <!-- ============== Q&A SECTION 2 ============== -->
+    <section class="qna">
+      <div class="qna-inner">
+        <div class="eyebrow">Jeda · Tanya Jawab</div>
+        <h1>Q&amp;A Bagian 2</h1>
+        <p class="qna-topic">Kenaikan Versi Android</p>
+        <p class="qna-note">Diskusi hanya untuk topik Bagian 2. Pertanyaan di luar topik ini kita tampung dulu, dibahas di Q&amp;A penutup.</p>
       </div>
     </section>
 
@@ -941,6 +1019,16 @@
         </div>
       </div>
       <p class="caption">Fasilitator bantu member yang kesulitan di H-1 rilis.</p>
+    </section>
+
+    <!-- ============== Q&A SECTION 3 ============== -->
+    <section class="qna">
+      <div class="qna-inner">
+        <div class="eyebrow">Jeda · Tanya Jawab</div>
+        <h1>Q&amp;A Bagian 3</h1>
+        <p class="qna-topic">Rilis Fitur Notifikasi Telegram</p>
+        <p class="qna-note">Diskusi hanya untuk topik Bagian 3. Setelah ini, sesi penutup untuk pertanyaan umum.</p>
+      </div>
     </section>
 
     <!-- ============== Q&A ============== -->
