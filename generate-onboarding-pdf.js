@@ -1,6 +1,22 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
+import path from 'path';
 import pg from 'pg';
+
+// Event date: override with `EVENT_DATE=YYYY-MM-DD npm run ...` or CLI arg.
+const eventArg = process.argv[2] || process.env.EVENT_DATE;
+const EVENT_DATE = eventArg ? new Date(eventArg) : new Date();
+
+const MONTHS_ID = ['januari','februari','maret','april','mei','juni','juli','agustus','september','oktober','november','desember'];
+const eventDay = EVENT_DATE.getDate();
+const eventMonth = MONTHS_ID[EVENT_DATE.getMonth()];
+const eventYear = EVENT_DATE.getFullYear();
+const EVENT_LABEL = `${eventDay} ${eventMonth.charAt(0).toUpperCase() + eventMonth.slice(1)} ${eventYear}`;
+const FILENAME_SLUG = `${eventDay}-${eventMonth}-${eventYear}`;
+
+const OUTPUT_DIR = path.join(process.cwd(), 'meetings', 'onboarding');
+const OUTPUT_PATH = path.join(OUTPUT_DIR, `onboarding-reminder-${FILENAME_SLUG}.pdf`);
+fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 
 const pool = new pg.Pool({
   host: 'localhost',
@@ -57,7 +73,7 @@ function waLink(phone, text) {
 
 // Create PDF
 const doc = new PDFDocument({ size: 'A4', margin: 50 });
-const output = fs.createWriteStream('onboarding-reminder-5-april-2026.pdf');
+const output = fs.createWriteStream(OUTPUT_PATH);
 doc.pipe(output);
 
 const green = '#2e7d32';
@@ -67,7 +83,7 @@ const blue = '#1565c0';
 
 // Title
 doc.fontSize(20).fillColor(green).text('Onboarding Fasilitator Ngeshare', { align: 'center' });
-doc.fontSize(14).fillColor(darkGray).text('5 April 2026', { align: 'center' });
+doc.fontSize(14).fillColor(darkGray).text(EVENT_LABEL, { align: 'center' });
 doc.moveDown(0.5);
 doc.fontSize(10).fillColor('#666').text(`${rows.length} nominee pending  •  ${facMap.size} fasilitator`, { align: 'center' });
 doc.moveDown(1.5);
@@ -75,7 +91,7 @@ doc.moveDown(1.5);
 // Section 1: Per-nominee links
 doc.fontSize(16).fillColor(green).text('WA Link ke Nominee');
 doc.moveDown(0.3);
-doc.fontSize(9).fillColor('#666').text('Pesan: "Assalamu\'alaikum Kak [Nama Pertama], mohon bisa ikuti onboarding Fasilitator Ngeshare pada tanggal 5 April 2026. Terima kasih."');
+doc.fontSize(9).fillColor('#666').text(`Pesan: "Assalamu'alaikum Kak [Nama Pertama], mohon bisa ikuti onboarding Fasilitator Ngeshare pada tanggal ${EVENT_LABEL}. Terima kasih."`);
 doc.moveDown(0.8);
 
 // Table header
@@ -117,7 +133,7 @@ for (const [fac, info] of facMap) {
     doc.text(n.phone || '-', col.nPhone + 4, rowY + 4, { width: colW.nPhone });
     doc.text(fac || '-', col.facilitator + 4, rowY + 4, { width: colW.facilitator });
 
-    const nomineeMsg = `Assalamu'alaikum Kak ${firstName(n.name)}, mohon bisa ikuti onboarding Fasilitator Ngeshare pada tanggal 5 April 2026. Terima kasih.`;
+    const nomineeMsg = `Assalamu'alaikum Kak ${firstName(n.name)}, mohon bisa ikuti onboarding Fasilitator Ngeshare pada tanggal ${EVENT_LABEL}. Terima kasih.`;
     const link = waLink(n.phone, nomineeMsg);
     doc.fontSize(8).fillColor(blue)
       .text('Kirim WA', col.link + 4, rowY + 4, { width: colW.link, link, underline: true });
@@ -146,7 +162,7 @@ for (const [fac, info] of facMap) {
   doc.y = y + 24;
 
   const nameList = info.nominees.map((n, i) => `${i + 1}. ${n.name}`).join('\n');
-  const facMsg = `Assalamu'alaikum Kak ${firstName(fac)}, mohon bantu ingatkan nominee berikut untuk ikuti onboarding Fasilitator Ngeshare pada tanggal 5 April 2026:\n\n${nameList}\n\nTerima kasih atas bantuannya.`;
+  const facMsg = `Assalamu'alaikum Kak ${firstName(fac)}, mohon bantu ingatkan nominee berikut untuk ikuti onboarding Fasilitator Ngeshare pada tanggal ${EVENT_LABEL}:\n\n${nameList}\n\nTerima kasih atas bantuannya.`;
   const facLink = waLink(info.phone, facMsg);
 
   for (const [i, n] of info.nominees.entries()) {
@@ -164,4 +180,4 @@ doc.fontSize(8).fillColor('#999').text(`Generated: ${new Date().toLocaleString('
 
 doc.end();
 await new Promise(resolve => output.on('finish', resolve));
-console.log('PDF created: onboarding-reminder-5-april-2026.pdf');
+console.log(`PDF created: ${OUTPUT_PATH}`);

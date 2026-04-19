@@ -3,13 +3,14 @@
 import { Router } from 'express';
 import pg from 'pg';
 import { destConfig } from '../../config/database.js';
-import { getDashboardMetrics, getCurriculumFunnel, getFacilitatorStats, getMonthlyMetrics } from '../queries/metrics.js';
+import { getDashboardMetrics, getCurriculumFunnel, getFacilitatorStats, getMonthlyMetrics, getMonthlyMetricsByOrigin, getPromotionTimeline, getFacilitatorActivityRate } from '../queries/metrics.js';
 import { getGroups, getGroupById, getGroupMembers, getRescueList, getCourseList } from '../queries/groups.js';
 import { getFunnelStages, getFunnelConversions, getFunnelTimeline, getFunnelDropoff, getFunnelHealth } from '../queries/funnel.js';
 import { getMemberFlow, getMemberProgressionStats } from '../queries/sankey.js';
 import { getFacilitatorRanking, getFacilitatorLineage, getRankingSummary, getFacilitatorDetails } from '../queries/facilitatorRanking.js';
-import { getProvinces, getCities, getFacilitatorsByLocation } from '../queries/facilitatorLocation.js';
-import { getMemberProvinces, getMemberCities, getMembersByLocation } from '../queries/memberLocation.js';
+import { getProvinces, getCities, getFacilitatorsByLocation, getFacilitatorCountByLocation } from '../queries/facilitatorLocation.js';
+import { getMemberProvinces, getMemberCities, getMembersByLocation, getMemberCountByLocation } from '../queries/memberLocation.js';
+import { getRegion, listRegions } from '../queries/regions.js';
 
 const router = Router();
 const { Pool } = pg;
@@ -73,6 +74,45 @@ router.get('/metrics/monthly', async (req, res) => {
     res.json(monthly);
   } catch (err) {
     console.error('Error fetching monthly metrics:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Monthly metrics split by facilitator origin (promoted vs ngeslow-alumni)
+router.get('/metrics/monthly-by-origin', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const rows = await getMonthlyMetricsByOrigin(pool, dateFrom, dateTo);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching monthly-by-origin:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Promotion timeline (new + cumulative promoted facilitators per month)
+router.get('/metrics/promotion-timeline', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const rows = await getPromotionTimeline(pool, dateFrom, dateTo);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching promotion timeline:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Facilitator activity rate (active vs total, per origin, per month)
+router.get('/metrics/facilitator-activity-rate', async (req, res) => {
+  try {
+    const dateFrom = req.query.dateFrom || null;
+    const dateTo = req.query.dateTo || null;
+    const rows = await getFacilitatorActivityRate(pool, dateFrom, dateTo);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching facilitator activity rate:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -348,6 +388,30 @@ router.get('/export/ranking', async (req, res) => {
   }
 });
 
+// Region endpoints
+router.get('/regions', (req, res) => {
+  res.json(listRegions());
+});
+
+router.get('/regions/:regionId/counts', async (req, res) => {
+  const region = getRegion(req.params.regionId);
+  if (!region) return res.status(404).json({ error: 'Unknown region' });
+  try {
+    const [fac, mem] = await Promise.all([
+      getFacilitatorCountByLocation(pool, { region }),
+      getMemberCountByLocation(pool, { region })
+    ]);
+    res.json({
+      region: { id: region.id, label: region.label },
+      facilitators: fac,
+      members: mem
+    });
+  } catch (err) {
+    console.error('Error fetching region counts:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Facilitator location endpoints
 router.get('/facilitators/provinces', async (req, res) => {
   try {
@@ -374,7 +438,10 @@ router.get('/facilitators', async (req, res) => {
   try {
     const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
     const cities = req.query.cities ? req.query.cities.split(',') : [];
-    const facilitators = await getFacilitatorsByLocation(pool, { provinces, cities });
+    const regionId = req.query.region || null;
+    const region = regionId ? getRegion(regionId) : null;
+    if (regionId && !region) return res.status(400).json({ error: 'Unknown region' });
+    const facilitators = await getFacilitatorsByLocation(pool, { provinces, cities, region });
     res.json(facilitators);
   } catch (err) {
     console.error('Error fetching facilitators:', err);
@@ -387,7 +454,10 @@ router.get('/export/facilitators', async (req, res) => {
   try {
     const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
     const cities = req.query.cities ? req.query.cities.split(',') : [];
-    const facilitators = await getFacilitatorsByLocation(pool, { provinces, cities });
+    const regionId = req.query.region || null;
+    const region = regionId ? getRegion(regionId) : null;
+    if (regionId && !region) return res.status(400).json({ error: 'Unknown region' });
+    const facilitators = await getFacilitatorsByLocation(pool, { provinces, cities, region });
 
     const headers = ['#', 'Name', 'Email', 'Phone', 'Province', 'City', 'Groups Facilitated', 'Members', 'Alumni'];
     const rows = facilitators.map((f, i) => [
@@ -439,7 +509,10 @@ router.get('/members', async (req, res) => {
   try {
     const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
     const cities = req.query.cities ? req.query.cities.split(',') : [];
-    const members = await getMembersByLocation(pool, { provinces, cities });
+    const regionId = req.query.region || null;
+    const region = regionId ? getRegion(regionId) : null;
+    if (regionId && !region) return res.status(400).json({ error: 'Unknown region' });
+    const members = await getMembersByLocation(pool, { provinces, cities, region });
     res.json(members);
   } catch (err) {
     console.error('Error fetching members:', err);
@@ -452,7 +525,10 @@ router.get('/export/members', async (req, res) => {
   try {
     const provinces = req.query.provinces ? req.query.provinces.split(',') : [];
     const cities = req.query.cities ? req.query.cities.split(',') : [];
-    const members = await getMembersByLocation(pool, { provinces, cities });
+    const regionId = req.query.region || null;
+    const region = regionId ? getRegion(regionId) : null;
+    if (regionId && !region) return res.status(400).json({ error: 'Unknown region' });
+    const members = await getMembersByLocation(pool, { provinces, cities, region });
 
     const headers = ['#', 'Name', 'Email', 'Phone', 'Province', 'City', 'Groups Joined', 'Became Facilitator'];
     const rows = members.map((m, i) => [

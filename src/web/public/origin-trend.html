@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Origin Trend · ngeShare Analytics</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <script src="/js/app.js" defer></script>
+</head>
+<body>
+  <header class="navbar">
+    <h1>ngeShare Analytics</h1>
+    <nav>
+      <a href="/">Dashboard</a>
+      <a href="/groups.html">Groups</a>
+      <a href="/funnel.html">Funnel</a>
+      <a href="/sankey.html">Member Flow</a>
+      <a href="/ranking.html">Ranking</a>
+      <a href="/rescue.html">Rescue List</a>
+      <a href="/origin-trend.html" class="active">Origin Trend</a>
+      <a href="/facilitators.html">Facilitators</a>
+      <a href="/members.html">Members</a>
+      <a href="/map.html">Map</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="page-header">
+      <h2>Monthly Trend — Member-Promoted vs Ngeslow-Alumni</h2>
+      <p>Per-month active groups, members, and facilitators, split by facilitator origin.</p>
+    </div>
+
+    <div class="chart-container" style="height:380px;">
+      <h3>Active Groups per Month</h3>
+      <canvas id="groupsChart"></canvas>
+    </div>
+
+    <div class="chart-container" style="height:380px;">
+      <h3>Active Members per Month</h3>
+      <canvas id="membersChart"></canvas>
+    </div>
+
+    <div class="chart-container" style="height:380px;">
+      <h3>Active Facilitators per Month</h3>
+      <canvas id="facilitatorsChart"></canvas>
+    </div>
+
+    <div class="chart-container" style="height:380px;">
+      <h3>% Share — Promoted vs Ngeslow-Alumni</h3>
+      <canvas id="shareChart"></canvas>
+    </div>
+
+    <div class="chart-container" style="height:380px;">
+      <h3>Active Facilitators vs Total Population</h3>
+      <canvas id="populationChart"></canvas>
+    </div>
+
+    <div class="chart-container" style="height:380px;">
+      <h3>Facilitator Activity Rate — Active / Total per Origin</h3>
+      <canvas id="activityRateChart"></canvas>
+    </div>
+
+    <div class="chart-container" style="height:380px;">
+      <h3>Facilitator Promotions — New per Month &amp; Cumulative Total</h3>
+      <canvas id="promotionChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+      <h3>Raw Data</h3>
+      <div id="rawTableWrap" style="overflow:auto;"></div>
+    </div>
+  </main>
+
+  <script>
+    const COLOR_PROMOTED = 'rgba(99, 102, 241, 0.85)';   // indigo → member-promoted
+    const COLOR_NGESLOW  = 'rgba(244, 114, 182, 0.85)';  // pink → ngeslow-alumni
+    const COLOR_TOTAL    = 'rgba(100, 116, 139, 0.75)';  // slate → total
+    const BG_PROMOTED    = 'rgba(99, 102, 241, 0.12)';
+    const BG_NGESLOW     = 'rgba(244, 114, 182, 0.12)';
+
+    function formatMonth(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    }
+
+    function pivotByMonth(rows) {
+      const months = [...new Set(rows.map(r => r.month))].sort();
+      const pick = (month, isAlumni, field) => {
+        const row = rows.find(r => r.month === month && r.is_alumni === isAlumni);
+        return row ? Number(row[field]) : 0;
+      };
+      return {
+        labels: months.map(formatMonth),
+        months,
+        promoted: {
+          groups: months.map(m => pick(m, true, 'active_groups')),
+          members: months.map(m => pick(m, true, 'active_members')),
+          facilitators: months.map(m => pick(m, true, 'active_facilitators'))
+        },
+        ngeslow: {
+          groups: months.map(m => pick(m, false, 'active_groups')),
+          members: months.map(m => pick(m, false, 'active_members')),
+          facilitators: months.map(m => pick(m, false, 'active_facilitators'))
+        }
+      };
+    }
+
+    function lineChart(canvasId, labels, promoted, ngeslow, yLabel) {
+      const total = promoted.map((v, i) => v + ngeslow[i]);
+      const ctx = document.getElementById(canvasId);
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Total',
+              data: total,
+              borderColor: COLOR_TOTAL,
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              borderDash: [6, 4],
+              tension: 0.3,
+              fill: false,
+              pointRadius: 2,
+              pointStyle: 'circle',
+              order: 3,
+              datalabels: {
+                display: true,
+                align: 'top',
+                offset: 6,
+                color: 'rgba(100, 116, 139, 0.85)',
+                font: { size: 10, weight: '600' },
+                formatter: v => v
+              }
+            },
+            {
+              label: 'Member-promoted',
+              data: promoted,
+              borderColor: COLOR_PROMOTED,
+              backgroundColor: BG_PROMOTED,
+              tension: 0.3,
+              fill: true,
+              pointRadius: 3,
+              order: 1,
+              datalabels: {
+                display: true,
+                align: 'bottom',
+                offset: 4,
+                color: 'rgba(99, 102, 241, 0.9)',
+                font: { size: 10, weight: '600' },
+                formatter: v => v
+              }
+            },
+            {
+              label: 'Ngeslow-alumni',
+              data: ngeslow,
+              borderColor: COLOR_NGESLOW,
+              backgroundColor: BG_NGESLOW,
+              tension: 0.3,
+              fill: true,
+              pointRadius: 3,
+              order: 2,
+              datalabels: {
+                display: true,
+                align: 'top',
+                offset: 4,
+                color: 'rgba(244, 114, 182, 0.9)',
+                font: { size: 10, weight: '600' },
+                formatter: v => v
+              }
+            }
+          ]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {} // per-dataset config above
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: yLabel } }
+          }
+        }
+      });
+    }
+
+    function renderTable(rows) {
+      if (!rows.length) return;
+      const wrap = document.getElementById('rawTableWrap');
+      const head = ['Month', 'Origin', 'Active Groups', 'Active Members', 'Active Facilitators'];
+      const body = rows.map(r => [
+        formatMonth(r.month),
+        r.is_alumni ? 'Member-promoted' : 'Ngeslow-alumni',
+        r.active_groups,
+        r.active_members,
+        r.active_facilitators
+      ]);
+      const html =
+        '<table class="data-table"><thead><tr>' +
+        head.map(h => `<th>${h}</th>`).join('') +
+        '</tr></thead><tbody>' +
+        body.map(row => '<tr>' + row.map(c => `<td>${c}</td>`).join('') + '</tr>').join('') +
+        '</tbody></table>';
+      wrap.innerHTML = html;
+    }
+
+    function shareChart(canvasId, labels, promoted, ngeslow) {
+      const total = promoted.map((v, i) => v + ngeslow[i]);
+      const pctPromoted = promoted.map((v, i) => total[i] > 0 ? Math.round(v / total[i] * 1000) / 10 : 0);
+      const pctNgeslow = ngeslow.map((v, i) => total[i] > 0 ? Math.round(v / total[i] * 1000) / 10 : 0);
+      const ctx = document.getElementById(canvasId);
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Member-promoted %',
+              data: pctPromoted,
+              borderColor: COLOR_PROMOTED,
+              backgroundColor: BG_PROMOTED,
+              fill: 'origin',
+              tension: 0.3,
+              pointRadius: 3,
+              order: 1,
+              datalabels: {
+                display: true,
+                align: 'top',
+                offset: 6,
+                color: 'rgba(99, 102, 241, 0.9)',
+                font: { size: 9, weight: '700' },
+                formatter: (v, c) => {
+                  const i = c.dataIndex;
+                  return `${promoted[i]}/${total[i]} (${v}%)`;
+                }
+              }
+            },
+            {
+              label: 'Ngeslow-alumni %',
+              data: pctNgeslow,
+              borderColor: COLOR_NGESLOW,
+              backgroundColor: BG_NGESLOW,
+              fill: '-1',
+              tension: 0.3,
+              pointRadius: 3,
+              order: 2,
+              datalabels: { display: false }
+            }
+          ]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {},
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const i = ctx.dataIndex;
+                  if (ctx.datasetIndex === 0) return `Promoted: ${promoted[i]} of ${total[i]} (${pctPromoted[i]}%)`;
+                  return `Ngeslow: ${ngeslow[i]} of ${total[i]} (${pctNgeslow[i]}%)`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              title: { display: true, text: '% of active facilitators' },
+              ticks: { callback: v => v + '%' }
+            }
+          }
+        }
+      });
+    }
+
+    function populationChart(canvasId, labels, activePromoted, activeNgeslow, totalAll) {
+      const activeAll = activePromoted.map((v, i) => v + activeNgeslow[i]);
+      const pctAP = activePromoted.map((v, i) => totalAll[i] > 0 ? Math.round(v / totalAll[i] * 1000) / 10 : 0);
+      const pctAN = activeNgeslow.map((v, i) => totalAll[i] > 0 ? Math.round(v / totalAll[i] * 1000) / 10 : 0);
+      const pctAll = activeAll.map((v, i) => totalAll[i] > 0 ? Math.round(v / totalAll[i] * 1000) / 10 : 0);
+      const ctx = document.getElementById(canvasId);
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Active Promoted',
+              data: activePromoted,
+              backgroundColor: 'rgba(99, 102, 241, 0.75)',
+              borderColor: COLOR_PROMOTED,
+              borderWidth: 1,
+              borderRadius: 2,
+              stack: 'active',
+              order: 2,
+              datalabels: {
+                display: ctx => activePromoted[ctx.dataIndex] > 0,
+                anchor: 'center',
+                align: 'center',
+                color: '#fff',
+                font: { size: 9, weight: '700' },
+                formatter: (v, c) => `${pctAP[c.dataIndex]}%`
+              }
+            },
+            {
+              label: 'Active Ngeslow-alumni',
+              data: activeNgeslow,
+              backgroundColor: 'rgba(244, 114, 182, 0.65)',
+              borderColor: COLOR_NGESLOW,
+              borderWidth: 1,
+              borderRadius: 2,
+              stack: 'active',
+              order: 2,
+              datalabels: {
+                display: true,
+                anchor: 'center',
+                align: 'center',
+                color: '#fff',
+                font: { size: 9, weight: '700' },
+                formatter: (v, c) => `${pctAN[c.dataIndex]}%`
+              }
+            },
+            {
+              label: 'Total Population',
+              data: totalAll,
+              type: 'line',
+              borderColor: COLOR_TOTAL,
+              backgroundColor: 'transparent',
+              borderWidth: 2.5,
+              borderDash: [6, 4],
+              tension: 0.3,
+              fill: false,
+              pointRadius: 3,
+              order: 1,
+              datalabels: {
+                display: true,
+                align: 'top',
+                offset: 6,
+                color: 'rgba(100, 116, 139, 0.9)',
+                font: { size: 10, weight: '700' },
+                formatter: (v, c) => `${pctAll[c.dataIndex]}% active`
+              }
+            }
+          ]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {},
+            tooltip: {
+              callbacks: {
+                afterBody: function(items) {
+                  const i = items[0].dataIndex;
+                  const active = activePromoted[i] + activeNgeslow[i];
+                  const inactive = totalAll[i] - active;
+                  return `\nActive total: ${active}\nInactive: ${inactive}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Facilitators' },
+              stacked: true
+            },
+            x: { stacked: true }
+          }
+        }
+      });
+    }
+
+    function activityRateChart(canvasId, labels, pctPromoted, pctNgeslow, pctAll, detailPromoted, detailNgeslow, detailAll) {
+      const ctx = document.getElementById(canvasId);
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Promoted',
+              data: pctPromoted,
+              borderColor: COLOR_PROMOTED,
+              backgroundColor: BG_PROMOTED,
+              tension: 0.3,
+              fill: false,
+              pointRadius: 4,
+              borderWidth: 2.5,
+              detail: detailPromoted,
+              datalabels: {
+                display: true,
+                align: 'bottom',
+                offset: 6,
+                color: 'rgba(99, 102, 241, 0.9)',
+                font: { size: 10, weight: '700' },
+                formatter: v => v + '%'
+              }
+            },
+            {
+              label: 'Ngeslow-alumni',
+              data: pctNgeslow,
+              borderColor: COLOR_NGESLOW,
+              backgroundColor: BG_NGESLOW,
+              tension: 0.3,
+              fill: false,
+              pointRadius: 4,
+              borderWidth: 2.5,
+              detail: detailNgeslow,
+              datalabels: {
+                display: true,
+                align: 'top',
+                offset: 6,
+                color: 'rgba(244, 114, 182, 0.9)',
+                font: { size: 10, weight: '700' },
+                formatter: v => v + '%'
+              }
+            },
+            {
+              label: 'All',
+              data: pctAll,
+              borderColor: COLOR_TOTAL,
+              backgroundColor: 'transparent',
+              borderWidth: 1.5,
+              borderDash: [6, 4],
+              tension: 0.3,
+              fill: false,
+              pointRadius: 0,
+              detail: detailAll,
+              datalabels: { display: false }
+            }
+          ]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'bottom' },
+            datalabels: {},
+            tooltip: {
+              callbacks: {
+                label: function(ctx) {
+                  const detail = ctx.dataset.detail ? ctx.dataset.detail[ctx.dataIndex] : '';
+                  return `${ctx.dataset.label}: ${ctx.parsed.y}% (${detail})`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              title: { display: true, text: '% active' },
+              ticks: { callback: v => v + '%' }
+            }
+          }
+        }
+      });
+    }
+
+    function promotionChart(canvasId, labels, newPromoted, cumulative) {
+      const ctx = document.getElementById(canvasId);
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'New Promoted',
+              data: newPromoted,
+              backgroundColor: 'rgba(99, 102, 241, 0.7)',
+              borderColor: COLOR_PROMOTED,
+              borderWidth: 1,
+              borderRadius: 4,
+              order: 2,
+              yAxisID: 'y',
+              datalabels: {
+                display: true,
+                align: 'end',
+                anchor: 'end',
+                offset: 2,
+                color: 'rgba(99, 102, 241, 0.9)',
+                font: { size: 10, weight: '600' },
+                formatter: v => v || ''
+              }
+            },
+            {
+              label: 'Cumulative Total',
+              data: cumulative,
+              type: 'line',
+              borderColor: COLOR_TOTAL,
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              borderDash: [6, 4],
+              tension: 0.3,
+              fill: false,
+              pointRadius: 3,
+              order: 1,
+              yAxisID: 'y2',
+              datalabels: {
+                display: true,
+                align: 'top',
+                offset: 6,
+                color: 'rgba(100, 116, 139, 0.85)',
+                font: { size: 10, weight: '600' },
+                formatter: v => v
+              }
+            }
+          ]
+        },
+        plugins: [ChartDataLabels],
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { position: 'bottom' }, datalabels: {} },
+          scales: {
+            y: {
+              beginAtZero: true,
+              position: 'left',
+              title: { display: true, text: 'New promoted / month' },
+              grid: { drawOnChartArea: true }
+            },
+            y2: {
+              beginAtZero: true,
+              position: 'right',
+              title: { display: true, text: 'Cumulative total' },
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+    }
+
+    async function load() {
+      const res = await fetch('/api/metrics/monthly-by-origin?dateFrom=2025-03-01&dateTo=2026-03-31');
+      const rows = await res.json();
+      const p = pivotByMonth(rows);
+      lineChart('groupsChart',       p.labels, p.promoted.groups,       p.ngeslow.groups,       'Active groups');
+      lineChart('membersChart',      p.labels, p.promoted.members,      p.ngeslow.members,      'Active members');
+      lineChart('facilitatorsChart', p.labels, p.promoted.facilitators, p.ngeslow.facilitators, 'Active facilitators');
+
+      // % Share stacked area (computed from active facilitators)
+      shareChart('shareChart', p.labels, p.promoted.facilitators, p.ngeslow.facilitators);
+
+      // Activity rate
+      const rateRes = await fetch('/api/metrics/facilitator-activity-rate?dateFrom=2025-03-01&dateTo=2026-03-31');
+      const rateRows = await rateRes.json();
+      const rateLabels = rateRows.map(r => formatMonth(r.month));
+      const pctProm = rateRows.map(r => {
+        const t = Number(r.total_promoted); const a = Number(r.active_promoted);
+        return t > 0 ? Math.round(a / t * 1000) / 10 : 0;
+      });
+      const pctNges = rateRows.map(r => {
+        const t = Number(r.total_ngeslow); const a = Number(r.active_ngeslow);
+        return t > 0 ? Math.round(a / t * 1000) / 10 : 0;
+      });
+      const pctAllRate = rateRows.map(r => {
+        const t = Number(r.total_promoted) + Number(r.total_ngeslow);
+        const a = Number(r.active_promoted) + Number(r.active_ngeslow);
+        return t > 0 ? Math.round(a / t * 1000) / 10 : 0;
+      });
+      const detailProm = rateRows.map(r => `${r.active_promoted}/${r.total_promoted}`);
+      const detailNges = rateRows.map(r => `${r.active_ngeslow}/${r.total_ngeslow}`);
+      const detailAllRate = rateRows.map(r => {
+        const a = Number(r.active_promoted) + Number(r.active_ngeslow);
+        const t = Number(r.total_promoted) + Number(r.total_ngeslow);
+        return `${a}/${t}`;
+      });
+      // Active vs Total Population chart
+      const popActivePromoted = rateRows.map(r => Number(r.active_promoted));
+      const popActiveNgeslow = rateRows.map(r => Number(r.active_ngeslow));
+      const popTotalAll = rateRows.map(r => Number(r.total_promoted) + Number(r.total_ngeslow));
+      populationChart('populationChart', rateLabels, popActivePromoted, popActiveNgeslow, popTotalAll);
+
+      activityRateChart('activityRateChart', rateLabels, pctProm, pctNges, pctAllRate, detailProm, detailNges, detailAllRate);
+
+      // Promotion timeline
+      const promoRes = await fetch('/api/metrics/promotion-timeline?dateFrom=2025-03-01&dateTo=2026-03-31');
+      const promoRows = await promoRes.json();
+      const promoLabels = promoRows.map(r => formatMonth(r.month));
+      const newPromoted = promoRows.map(r => Number(r.new_promoted));
+      const cumulative = promoRows.map(r => Number(r.cumulative_promoted));
+      promotionChart('promotionChart', promoLabels, newPromoted, cumulative);
+
+      renderTable(rows);
+    }
+
+    load().catch(err => {
+      console.error(err);
+      document.querySelector('main').insertAdjacentHTML(
+        'afterbegin',
+        `<div style="padding:1em;border:1px solid #f87171;background:#fee2e2;border-radius:8px;margin-bottom:1em;">Failed to load data: ${err.message}</div>`
+      );
+    });
+  </script>
+</body>
+</html>

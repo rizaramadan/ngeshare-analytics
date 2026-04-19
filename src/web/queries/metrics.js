@@ -114,6 +114,118 @@ export async function getFacilitatorStats(pool, dateFrom = null, dateTo = null) 
   return result.rows[0];
 }
 
+// Monthly breakdown split by facilitator origin (member-promoted vs ngeslow-alumni).
+// is_alumni = TRUE → member-promoted (internal pipeline).
+// is_alumni = FALSE → ngeslow-alumni (external).
+export async function getMonthlyMetricsByOrigin(pool, dateFrom = null, dateTo = null) {
+  const result = await pool.query(`
+    WITH date_range AS (
+      SELECT
+        COALESCE($1::timestamp, MIN("attendedAt")) AS start_date,
+        COALESCE($2::timestamp, MAX("attendedAt")) AS end_date
+      FROM "UserHangoutGroupAttendance"
+    ),
+    group_origin AS (
+      SELECT
+        gs.group_id,
+        gs.facilitator_id,
+        COALESCE(fs.is_alumni, FALSE) AS is_alumni
+      FROM v_group_status gs
+      LEFT JOIN v_facilitator_stats fs ON fs.facilitator_id = gs.facilitator_id
+      WHERE gs.facilitator_id IS NOT NULL
+    )
+    SELECT
+      DATE_TRUNC('month', a."attendedAt") AS month,
+      go.is_alumni,
+      COUNT(DISTINCT a."hangoutGroupId") AS active_groups,
+      COUNT(DISTINCT a."userId") FILTER (
+        WHERE a."userId" IS NOT NULL AND a."userId" != go.facilitator_id
+      ) AS active_members,
+      COUNT(DISTINCT go.facilitator_id) AS active_facilitators
+    FROM "UserHangoutGroupAttendance" a
+    CROSS JOIN date_range dr
+    JOIN group_origin go ON go.group_id = a."hangoutGroupId"
+    WHERE a."attendedAt" >= dr.start_date
+      AND a."attendedAt" <= dr.end_date
+    GROUP BY DATE_TRUNC('month', a."attendedAt"), go.is_alumni
+    ORDER BY month ASC, go.is_alumni DESC
+  `, [dateFrom, dateTo]);
+
+  return result.rows;
+}
+
+// Monthly new promoted facilitators + cumulative total
+export async function getPromotionTimeline(pool, dateFrom = null, dateTo = null) {
+  const result = await pool.query(`
+    WITH promoted_months AS (
+      SELECT
+        DATE_TRUNC('month', first_facilitator_date) AS month,
+        COUNT(*) AS new_promoted
+      FROM v_facilitator_stats
+      WHERE is_alumni = TRUE
+        AND first_facilitator_date IS NOT NULL
+        AND ($1::timestamp IS NULL OR first_facilitator_date >= $1::timestamp)
+        AND ($2::timestamp IS NULL OR first_facilitator_date <= $2::timestamp)
+      GROUP BY DATE_TRUNC('month', first_facilitator_date)
+    )
+    SELECT
+      month,
+      new_promoted,
+      SUM(new_promoted) OVER (ORDER BY month) AS cumulative_promoted
+    FROM promoted_months
+    ORDER BY month ASC
+  `, [dateFrom, dateTo]);
+
+  return result.rows;
+}
+
+// Facilitator activity rate: active vs total per origin per month
+export async function getFacilitatorActivityRate(pool, dateFrom = null, dateTo = null) {
+  const result = await pool.query(`
+    WITH months AS (
+      SELECT generate_series(
+        DATE_TRUNC('month', COALESCE($1::timestamp, '2025-03-01')),
+        DATE_TRUNC('month', COALESCE($2::timestamp, '2026-03-31')),
+        '1 month'
+      ) AS month
+    ),
+    cumulative AS (
+      SELECT
+        m.month,
+        COUNT(*) FILTER (WHERE fs.is_alumni = TRUE AND fs.first_facilitator_date < m.month + INTERVAL '1 month') AS total_promoted,
+        COUNT(*) FILTER (WHERE COALESCE(fs.is_alumni, FALSE) = FALSE AND fs.first_facilitator_date < m.month + INTERVAL '1 month') AS total_ngeslow
+      FROM months m
+      CROSS JOIN v_facilitator_stats fs
+      WHERE fs.first_facilitator_date IS NOT NULL
+      GROUP BY m.month
+    ),
+    active AS (
+      SELECT
+        DATE_TRUNC('month', a."attendedAt") AS month,
+        COUNT(DISTINCT CASE WHEN COALESCE(fs.is_alumni, FALSE) = TRUE THEN gs.facilitator_id END) AS active_promoted,
+        COUNT(DISTINCT CASE WHEN COALESCE(fs.is_alumni, FALSE) = FALSE THEN gs.facilitator_id END) AS active_ngeslow
+      FROM "UserHangoutGroupAttendance" a
+      JOIN v_group_status gs ON gs.group_id = a."hangoutGroupId"
+      LEFT JOIN v_facilitator_stats fs ON fs.facilitator_id = gs.facilitator_id
+      WHERE gs.facilitator_id IS NOT NULL
+        AND a."attendedAt" >= COALESCE($1::timestamp, '2025-03-01')
+        AND a."attendedAt" <= COALESCE($2::timestamp, '2026-03-31')
+      GROUP BY DATE_TRUNC('month', a."attendedAt")
+    )
+    SELECT
+      c.month,
+      c.total_promoted,
+      c.total_ngeslow,
+      COALESCE(a.active_promoted, 0) AS active_promoted,
+      COALESCE(a.active_ngeslow, 0) AS active_ngeslow
+    FROM cumulative c
+    LEFT JOIN active a ON c.month = a.month
+    ORDER BY c.month
+  `, [dateFrom, dateTo]);
+
+  return result.rows;
+}
+
 // Monthly breakdown metrics
 export async function getMonthlyMetrics(pool, dateFrom = null, dateTo = null) {
   const result = await pool.query(`

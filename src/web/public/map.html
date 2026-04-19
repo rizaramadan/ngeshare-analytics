@@ -9,26 +9,31 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     html, body { height: 100%; overflow: hidden; }
-    .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+    body { padding-left: var(--sidebar-width); padding-top: 0; }
     #map {
       position: fixed;
-      top: 57px; /* navbar height */
-      left: 0;
+      top: 0;
+      left: var(--sidebar-width);
       right: 0;
       bottom: 0;
     }
     .map-status {
       position: fixed;
       bottom: 1rem;
-      left: 50%;
+      left: calc(var(--sidebar-width) + ((100vw - var(--sidebar-width)) / 2));
       transform: translateX(-50%);
-      background: var(--card-bg);
+      background: white;
       padding: 0.5rem 1rem;
       border-radius: 2rem;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       font-size: 0.875rem;
       color: var(--gray-700);
       z-index: 1000;
+    }
+    @media (max-width: 768px) {
+      body { padding-top: 3.5rem; padding-left: 0; }
+      #map { top: 3.5rem; left: 0; }
+      .map-status { left: 50%; }
     }
   </style>
 </head>
@@ -42,6 +47,7 @@
       <a href="/sankey.html">Member Flow</a>
       <a href="/ranking.html">Ranking</a>
       <a href="/rescue.html">Rescue List</a>
+      <a href="/origin-trend.html">Origin Trend</a>
       <a href="/facilitators.html">Facilitators</a>
       <a href="/members.html">Members</a>
       <a href="/map.html" class="active">Map</a>
