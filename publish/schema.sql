@@ -101,3 +101,28 @@ CREATE TABLE IF NOT EXISTS facilitator_activity_rate (
   active_ngeslow   INTEGER     NOT NULL DEFAULT 0,
   published_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ---------------------------------------------------------------------------
+-- monthly_groups_by_province
+--
+-- One row per (month, province). Counts groups that started in that month
+-- and the running cumulative total per province through that month. Powers
+-- the Indonesia map page with a month slider showing platform expansion
+-- over time.
+--
+-- Source: HangoutGroup table directly. Province is normalized to UPPERCASE
+-- (HangoutGroup.province has case inconsistencies in raw data).
+-- "Started in month M" = DATE_TRUNC('month', COALESCE(startDate, createdAt))
+-- since endDate is never populated in source data.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS monthly_groups_by_province (
+  month             DATE        NOT NULL,
+  province          TEXT        NOT NULL,
+  new_groups        INTEGER     NOT NULL DEFAULT 0,
+  cumulative_groups INTEGER     NOT NULL DEFAULT 0,
+  published_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (month, province)
+);
+
+CREATE INDEX IF NOT EXISTS idx_groups_by_province_month
+  ON monthly_groups_by_province (month);
