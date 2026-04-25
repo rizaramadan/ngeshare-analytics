@@ -20,6 +20,7 @@ import { publishMonthlyMetricsByOrigin } from './tables/monthlyMetricsByOrigin.j
 import { publishMonthlyPromotions } from './tables/monthlyPromotions.js';
 import { publishFacilitatorActivityRate } from './tables/facilitatorActivityRate.js';
 import { publishMonthlyGroupsByProvince } from './tables/monthlyGroupsByProvince.js';
+import { publishMonthlyGroupsByCity } from './tables/monthlyGroupsByCity.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEBUG = process.env.DEBUG === 'true';
@@ -31,6 +32,7 @@ const TABLES = [
   { name: 'monthly_promotions', publish: publishMonthlyPromotions },
   { name: 'facilitator_activity_rate', publish: publishFacilitatorActivityRate },
   { name: 'monthly_groups_by_province', publish: publishMonthlyGroupsByProvince },
+  { name: 'monthly_groups_by_city', publish: publishMonthlyGroupsByCity },
 ];
 
 function log(...args) {

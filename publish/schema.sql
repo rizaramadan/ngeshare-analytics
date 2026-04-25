@@ -132,3 +132,24 @@ CREATE INDEX IF NOT EXISTS idx_groups_by_province_month
 -- Idempotent (ADD COLUMN IF NOT EXISTS is supported in Postgres 9.6+).
 ALTER TABLE monthly_groups_by_province
   ADD COLUMN IF NOT EXISTS active_groups INTEGER NOT NULL DEFAULT 0;
+
+-- ---------------------------------------------------------------------------
+-- monthly_groups_by_city
+--
+-- Same shape as monthly_groups_by_province but one row per (month, province,
+-- city). Powers the "click province on map → city breakdown table" drill-down
+-- on the Indonesia map page.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS monthly_groups_by_city (
+  month             DATE        NOT NULL,
+  province          TEXT        NOT NULL,
+  city              TEXT        NOT NULL,
+  new_groups        INTEGER     NOT NULL DEFAULT 0,
+  cumulative_groups INTEGER     NOT NULL DEFAULT 0,
+  active_groups     INTEGER     NOT NULL DEFAULT 0,
+  published_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (month, province, city)
+);
+
+CREATE INDEX IF NOT EXISTS idx_groups_by_city_province_month
+  ON monthly_groups_by_city (province, month);
