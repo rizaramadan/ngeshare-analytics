@@ -120,9 +120,15 @@ CREATE TABLE IF NOT EXISTS monthly_groups_by_province (
   province          TEXT        NOT NULL,
   new_groups        INTEGER     NOT NULL DEFAULT 0,
   cumulative_groups INTEGER     NOT NULL DEFAULT 0,
+  active_groups     INTEGER     NOT NULL DEFAULT 0,
   published_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (month, province)
 );
 
 CREATE INDEX IF NOT EXISTS idx_groups_by_province_month
   ON monthly_groups_by_province (month);
+
+-- Migration: add active_groups column for tables created before it existed.
+-- Idempotent (ADD COLUMN IF NOT EXISTS is supported in Postgres 9.6+).
+ALTER TABLE monthly_groups_by_province
+  ADD COLUMN IF NOT EXISTS active_groups INTEGER NOT NULL DEFAULT 0;
