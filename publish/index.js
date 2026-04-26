@@ -21,6 +21,7 @@ import { publishMonthlyPromotions } from './tables/monthlyPromotions.js';
 import { publishFacilitatorActivityRate } from './tables/facilitatorActivityRate.js';
 import { publishMonthlyGroupsByProvince } from './tables/monthlyGroupsByProvince.js';
 import { publishMonthlyGroupsByCity } from './tables/monthlyGroupsByCity.js';
+import { publishFacilitatorFirstHangoutBuckets } from './tables/facilitatorFirstHangoutBuckets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEBUG = process.env.DEBUG === 'true';
@@ -33,6 +34,7 @@ const TABLES = [
   { name: 'facilitator_activity_rate', publish: publishFacilitatorActivityRate },
   { name: 'monthly_groups_by_province', publish: publishMonthlyGroupsByProvince },
   { name: 'monthly_groups_by_city', publish: publishMonthlyGroupsByCity },
+  { name: 'facilitator_first_hangout_buckets', publish: publishFacilitatorFirstHangoutBuckets },
 ];
 
 function log(...args) {

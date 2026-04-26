@@ -153,3 +153,28 @@ CREATE TABLE IF NOT EXISTS monthly_groups_by_city (
 
 CREATE INDEX IF NOT EXISTS idx_groups_by_city_province_month
   ON monthly_groups_by_city (province, month);
+
+-- ---------------------------------------------------------------------------
+-- facilitator_first_hangout_buckets
+--
+-- For every person who has become a facilitator: how long between becoming a
+-- facilitator (first UserHangoutGroup row with role=FACILITATOR) and their
+-- first hangout (first attendance event in any group they facilitate)?
+--
+-- Bucketed into:
+--   first_month         (0–30 days)
+--   one_to_three_months (31–90 days)
+--   three_to_six_months (91–180 days)
+--   beyond_six_months   (181+ days)
+--   not_yet_started     (no hangout yet)
+--
+-- Split by is_alumni (Member-Promoted vs Ngeslow-Alumni) so admins can see
+-- whether one cohort activates faster.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS facilitator_first_hangout_buckets (
+  bucket            TEXT        NOT NULL,
+  is_alumni         BOOLEAN     NOT NULL,
+  facilitator_count INTEGER     NOT NULL DEFAULT 0,
+  published_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (bucket, is_alumni)
+);
