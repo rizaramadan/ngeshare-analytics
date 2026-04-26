@@ -183,11 +183,11 @@ CREATE TABLE IF NOT EXISTS facilitator_first_hangout_buckets (
 -- facilitator_recent_activity
 --
 -- Among the activated facilitators (those who reached episode 2), how many
--- have had any attendance event in the last 14 days vs not? Answers
+-- have had any attendance event in the last 21 days vs not? Answers
 -- "of those who started, who's still around?"
 --
--- recent_status: 'still_active' (last attendance within 14d) or 'dormant'
--- (last attendance > 14d ago). Split by is_alumni.
+-- recent_status: 'still_active' (last attendance within 21d) or 'dormant'
+-- (last attendance > 21d ago). Split by is_alumni.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS facilitator_recent_activity (
   recent_status     TEXT        NOT NULL,

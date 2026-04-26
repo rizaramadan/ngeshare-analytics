@@ -1,9 +1,9 @@
 // Publish: facilitator_recent_activity
 //
 // Among the activated facilitators (those who reached episode 2), classify
-// them by whether they've had any attendance event in the last 14 days:
-//   still_active — last attendance within 14 days
-//   dormant      — last attendance > 14 days ago
+// them by whether they've had any attendance event in the last 21 days:
+//   still_active — last attendance within 21 days
+//   dormant      — last attendance > 21 days ago
 //
 // Split by is_alumni. "Activated" is the same definition as in
 // facilitator_first_hangout_buckets (reached episode 2).
@@ -49,7 +49,7 @@ const SOURCE_SQL = `
     SELECT
       COALESCE(vfs.is_alumni, FALSE) AS is_alumni,
       CASE
-        WHEN la.last_attendance_date >= NOW() - INTERVAL '14 days'
+        WHEN la.last_attendance_date >= NOW() - INTERVAL '21 days'
           THEN 'still_active'
         ELSE 'dormant'
       END AS recent_status
