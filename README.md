@@ -73,6 +73,24 @@ export DB_USER=ngeshare
 export DB_PASSWORD=ngeshare_local_password
 ```
 
+## Group Counting Eligibility
+
+Analytics use one canonical eligibility rule for Hangout groups:
+
+- Online self-learning groups count immediately, even without attendance. They
+  are identified by the same user holding both MEMBER and FACILITATOR roles.
+- The self-learning FACILITATOR role represents group ownership and is not
+  counted as a facilitator promotion.
+- Other `Ngeshare Sesi Aqidah` groups count only after an episode 2 attendance.
+- Groups for later curriculum courses count normally.
+- Groups facilitated by the `chakras.campur` Gmail identity (including Gmail
+  aliases) are excluded.
+- Other known dummy groups are excluded explicitly by immutable group ID in
+  `analytics_group_exclusions`; names are not used as a general test-data rule.
+
+The rule is defined in `v_eligible_hangout_groups` in `migrations/views.sql`.
+`pnpm sync` reapplies the analytics views after refreshing source data.
+
 ## Project Structure
 
 ```

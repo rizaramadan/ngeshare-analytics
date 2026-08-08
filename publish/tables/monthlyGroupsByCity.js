@@ -32,7 +32,7 @@ const SOURCE_SQL = `
           COALESCE(hg."startDate", hg."createdAt")
         )
       )::date AS end_month
-    FROM "HangoutGroup" hg
+    FROM v_eligible_hangout_groups hg
     WHERE hg.province IS NOT NULL AND TRIM(hg.province) != ''
       AND hg.city     IS NOT NULL AND TRIM(hg.city)     != ''
   ),

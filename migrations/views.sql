@@ -18,6 +18,90 @@ ON CONFLICT (course_name) DO UPDATE SET
     max_episodes = EXCLUDED.max_episodes,
     sequence_order = EXCLUDED.sequence_order;
 
+-- Explicit exclusions are keyed by immutable group ID. Do not infer test data
+-- from generic words such as "test", "demo", or "dummy" in group names.
+CREATE TABLE IF NOT EXISTS analytics_group_exclusions (
+    group_id TEXT PRIMARY KEY,
+    reason TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO analytics_group_exclusions (group_id, reason) VALUES
+    ('cmptiyk3he7kab9a8m97n9l6x', 'Dummy Group - Injected by Chakras')
+ON CONFLICT (group_id) DO UPDATE SET reason = EXCLUDED.reason;
+
+-- Canonical group-counting boundary.
+-- Online self-learning groups are identified structurally: the same user is
+-- both MEMBER and FACILITATOR. They count immediately, even without attendance.
+-- Other Aqidah groups count only after an episode 2 attendance, which is the
+-- first real curriculum session and the existing activation threshold.
+CREATE OR REPLACE VIEW v_eligible_hangout_groups AS
+SELECT
+    hg.id,
+    hg."createdAt",
+    hg."updatedAt",
+    hg.name,
+    hg.description,
+    hg.status,
+    hg.day,
+    hg.time,
+    hg."hangoutId",
+    hg."imageId",
+    hg."endDate",
+    hg."startDate",
+    hg.city,
+    hg.province
+FROM "HangoutGroup" hg
+LEFT JOIN "Hangout" h ON h.id = hg."hangoutId"
+WHERE NOT EXISTS (
+        SELECT 1
+        FROM analytics_group_exclusions exclusion
+        WHERE exclusion.group_id = hg.id
+    )
+  AND NOT EXISTS (
+        SELECT 1
+        FROM "UserHangoutGroup" facilitator_role
+        LEFT JOIN "User" facilitator ON facilitator.id = facilitator_role."userId"
+        WHERE facilitator_role."hangoutGroupId" = hg.id
+          AND facilitator_role."hangoutGroupRole" = 'FACILITATOR'
+          -- Gmail ignores dots and treats +suffixes as aliases of one account.
+          AND REPLACE(
+                SPLIT_PART(
+                    SPLIT_PART(LOWER(COALESCE(facilitator.email, facilitator_role."userEmail")), '@', 1),
+                    '+',
+                    1
+                ),
+                '.',
+                ''
+              ) = 'chakrascampur'
+          AND SPLIT_PART(
+                LOWER(COALESCE(facilitator.email, facilitator_role."userEmail")),
+                '@',
+                2
+              ) IN ('gmail.com', 'googlemail.com')
+    )
+  AND (
+        h.name IS DISTINCT FROM 'Ngeshare Sesi Aqidah'
+        OR EXISTS (
+            SELECT 1
+            FROM "UserHangoutGroup" member_role
+            JOIN "UserHangoutGroup" facilitator_role
+              ON facilitator_role."hangoutGroupId" = member_role."hangoutGroupId"
+             AND facilitator_role."userId" = member_role."userId"
+             AND facilitator_role."hangoutGroupRole" = 'FACILITATOR'
+            WHERE member_role."hangoutGroupId" = hg.id
+              AND member_role."hangoutGroupRole" = 'MEMBER'
+        )
+        OR EXISTS (
+            SELECT 1
+            FROM "UserHangoutGroupAttendance" attendance
+            JOIN "HangoutEpisode" episode
+              ON episode.id = attendance."hangoutEpisodeId"
+             AND episode."order" = 2
+            WHERE attendance."hangoutGroupId" = hg.id
+        )
+    );
+
 -- View: v_group_summary
 -- Group with course info, facilitator, and member count
 CREATE OR REPLACE VIEW v_group_summary AS
@@ -38,7 +122,7 @@ SELECT
     f.user_email AS facilitator_email,
     -- Member count (excluding facilitator)
     COALESCE(m.member_count, 0) AS member_count
-FROM "HangoutGroup" hg
+FROM v_eligible_hangout_groups hg
 LEFT JOIN "Hangout" h ON hg."hangoutId" = h.id
 LEFT JOIN course_config cc ON h.name = cc.course_name
 -- Get facilitator
@@ -115,29 +199,53 @@ LEFT JOIN v_group_progress gp ON gs.group_id = gp.group_id;
 -- View: v_facilitator_stats
 -- Facilitator metrics with alumni flag
 CREATE OR REPLACE VIEW v_facilitator_stats AS
-WITH facilitator_roles AS (
+WITH member_roles AS (
     SELECT
-        "userId",
-        "userEmail",
-        MIN(CASE WHEN "hangoutGroupRole" = 'MEMBER' THEN "joinedAt" END) AS first_member_date,
-        MIN(CASE WHEN "hangoutGroupRole" = 'FACILITATOR' THEN "joinedAt" END) AS first_facilitator_date,
-        COUNT(DISTINCT CASE WHEN "hangoutGroupRole" = 'FACILITATOR' THEN "hangoutGroupId" END) AS groups_facilitated
-    FROM "UserHangoutGroup"
-    WHERE "userId" IS NOT NULL
-    GROUP BY "userId", "userEmail"
-    HAVING COUNT(DISTINCT CASE WHEN "hangoutGroupRole" = 'FACILITATOR' THEN "hangoutGroupId" END) > 0
+        membership."userId",
+        MIN(membership."joinedAt") AS first_member_date
+    FROM "UserHangoutGroup" membership
+    JOIN v_eligible_hangout_groups eligible
+      ON eligible.id = membership."hangoutGroupId"
+    WHERE membership."hangoutGroupRole" = 'MEMBER'
+      AND membership."userId" IS NOT NULL
+    GROUP BY membership."userId"
+),
+facilitator_roles AS (
+    SELECT
+        facilitator_role."userId",
+        COALESCE(MAX(facilitator.email), MAX(facilitator_role."userEmail")) AS "userEmail",
+        MIN(facilitator_role."joinedAt") AS first_facilitator_date,
+        COUNT(DISTINCT facilitator_role."hangoutGroupId") AS groups_facilitated
+    FROM "UserHangoutGroup" facilitator_role
+    JOIN v_eligible_hangout_groups eligible
+      ON eligible.id = facilitator_role."hangoutGroupId"
+    LEFT JOIN "User" facilitator ON facilitator.id = facilitator_role."userId"
+    WHERE facilitator_role."hangoutGroupRole" = 'FACILITATOR'
+      AND facilitator_role."userId" IS NOT NULL
+      -- Self-learning assigns the learner both roles in one group. That role
+      -- owns the online group but is not a real facilitator promotion.
+      AND NOT EXISTS (
+          SELECT 1
+          FROM "UserHangoutGroup" member_role
+          WHERE member_role."hangoutGroupId" = facilitator_role."hangoutGroupId"
+            AND member_role."userId" = facilitator_role."userId"
+            AND member_role."hangoutGroupRole" = 'MEMBER'
+      )
+    GROUP BY facilitator_role."userId"
 )
 SELECT
-    "userId" AS facilitator_id,
-    "userEmail" AS facilitator_email,
-    groups_facilitated,
-    first_facilitator_date,
+    facilitator_roles."userId" AS facilitator_id,
+    facilitator_roles."userEmail" AS facilitator_email,
+    facilitator_roles.groups_facilitated,
+    facilitator_roles.first_facilitator_date,
     CASE
-        WHEN first_member_date IS NOT NULL AND first_member_date < first_facilitator_date
+        WHEN member_roles.first_member_date IS NOT NULL
+         AND member_roles.first_member_date < facilitator_roles.first_facilitator_date
         THEN TRUE
         ELSE FALSE
     END AS is_alumni
-FROM facilitator_roles;
+FROM facilitator_roles
+LEFT JOIN member_roles ON member_roles."userId" = facilitator_roles."userId";
 
 -- View: v_curriculum_funnel
 -- Groups per course per status for funnel chart
@@ -182,4 +290,7 @@ SELECT
     (SELECT COUNT(*) FROM v_group_status) AS total_groups,
     (SELECT COUNT(*) FROM v_facilitator_stats) AS total_facilitators,
     (SELECT COUNT(*) FROM v_facilitator_stats WHERE is_alumni = TRUE) AS alumni_facilitators,
-    (SELECT COUNT(DISTINCT "userId") FROM "UserHangoutGroup" WHERE "hangoutGroupRole" = 'MEMBER' AND "userId" IS NOT NULL) AS total_members;
+    (SELECT COUNT(DISTINCT uhg."userId")
+     FROM "UserHangoutGroup" uhg
+     JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
+     WHERE uhg."hangoutGroupRole" = 'MEMBER' AND uhg."userId" IS NOT NULL) AS total_members;

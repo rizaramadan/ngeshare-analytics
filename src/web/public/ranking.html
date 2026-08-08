@@ -27,6 +27,7 @@
     <div class="page-header">
       <h2>Facilitator Ranking</h2>
       <p>Ranking based on member development and member-to-facilitator conversion. Click a row to see details.</p>
+      <p class="data-as-of" id="dataAsOf">Data as of: <span id="newestDataAt">loading…</span></p>
     </div>
 
     <!-- Summary Cards -->
@@ -136,9 +137,27 @@
         document.getElementById('totalAlumni').textContent = summary.total_alumni;
         document.getElementById('totalMembers').textContent = summary.total_members;
         document.getElementById('totalGroups').textContent = summary.total_groups;
+        renderNewestDataAt(summary);
       } catch (err) {
         console.error('Error loading summary:', err);
+        document.getElementById('newestDataAt').textContent = 'unavailable';
       }
+    }
+
+    function renderNewestDataAt(summary) {
+      const el = document.getElementById('newestDataAt');
+      const joinedAt = summary.newest_member_joined_at ? new Date(summary.newest_member_joined_at) : null;
+      const attendedAt = summary.newest_attended_at ? new Date(summary.newest_attended_at) : null;
+      const candidates = [joinedAt, attendedAt].filter(Boolean);
+      if (candidates.length === 0) {
+        el.textContent = 'no data';
+        return;
+      }
+      const newest = new Date(Math.max(...candidates.map(d => d.getTime())));
+      el.textContent = newest.toLocaleString('id-ID', {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
+      });
     }
 
     async function loadRanking() {
@@ -395,6 +414,15 @@
   </script>
 
   <style>
+    .data-as-of {
+      color: #888;
+      font-size: 0.85em;
+      margin-top: 0.25rem;
+    }
+    .data-as-of #newestDataAt {
+      font-weight: 600;
+      color: #555;
+    }
     .info-card {
       background: #f8f9fa;
       border-radius: 8px;

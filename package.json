@@ -12,6 +12,8 @@
     "sync:debug": "DEBUG=true node src/index.js",
     "publish": "node publish/index.js",
     "publish:debug": "DEBUG=true node publish/index.js",
+    "mirror": "node publish/mirror-to-neon.js",
+    "refresh-neon": "pnpm run publish && pnpm run mirror",
     "refresh-analytics": "pnpm sync && pnpm run publish",
     "refresh-analytics:debug": "DEBUG=true pnpm sync && DEBUG=true pnpm run publish",
     "dev": "node --watch src/web/server.js",

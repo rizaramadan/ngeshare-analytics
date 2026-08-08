@@ -11,11 +11,19 @@ const DEVELOPERS_CTE = `
       WHERE type = 'HAS_ROLE' AND label = 'developer'
     )`;
 
+// Preserve explicit test flags, and also exclude groups outside the canonical
+// counting boundary (non-self-learning Aqidah groups before episode 2).
 const TEST_GROUPS_CTE = `
     test_groups AS (
       SELECT replace(id, 'group:', '') as group_id
       FROM local_nodes
       WHERE properties->>'is_test' = 'true'
+      UNION
+      SELECT hg.id
+      FROM "HangoutGroup" hg
+      WHERE NOT EXISTS (
+        SELECT 1 FROM v_eligible_hangout_groups eligible WHERE eligible.id = hg.id
+      )
     )`;
 
 const ACTIVE_MEMBERS_CTE = `
@@ -698,7 +706,12 @@ export async function getRankingSummary(pool) {
       (SELECT COUNT(DISTINCT "hangoutGroupId") FROM "UserHangoutGroup"
        WHERE "hangoutGroupRole" = 'FACILITATOR'
          AND "hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
-      ) as total_groups
+      ) as total_groups,
+      (SELECT MAX("joinedAt") FROM "UserHangoutGroup"
+       WHERE "userId" NOT IN (SELECT user_id FROM developers)
+         AND "hangoutGroupId" NOT IN (SELECT group_id FROM test_groups)
+      ) as newest_member_joined_at,
+      (SELECT MAX("attendedAt") FROM "UserHangoutGroupAttendance") as newest_attended_at
   `);
 
   return result.rows[0];

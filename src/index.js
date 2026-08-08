@@ -1,6 +1,7 @@
 // Main entry point for sync script
 
 import 'dotenv/config';
+import { readFileSync } from 'node:fs';
 import { getSourcePool, getDestPool, closePools } from './db/pools.js';
 import { syncTable } from './sync/syncTable.js';
 import { SYNC_TABLES } from './sync/tableConfigs.js';
@@ -31,6 +32,11 @@ async function main() {
         logger.warn(`Continuing after error in ${tableConfig.name}`);
       }
     }
+
+    logger.info('Applying analytics views...');
+    const viewsSql = readFileSync(new URL('../migrations/views.sql', import.meta.url), 'utf8');
+    await destPool.query(viewsSql);
+    logger.info('Analytics views applied successfully!');
 
     // Print summary
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);

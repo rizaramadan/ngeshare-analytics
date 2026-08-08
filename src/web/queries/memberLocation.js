@@ -27,6 +27,7 @@ export async function getMemberProvinces(pool) {
     SELECT DISTINCT up.province
     FROM "UserProfile" up
     JOIN "UserHangoutGroup" uhg ON uhg."userId" = up."userId"
+    JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
     WHERE uhg."hangoutGroupRole" = 'MEMBER'
       AND up.province IS NOT NULL
       AND up.province != ''
@@ -47,6 +48,7 @@ export async function getMemberCities(pool, provinces = []) {
     SELECT DISTINCT up.city, up.province
     FROM "UserProfile" up
     JOIN "UserHangoutGroup" uhg ON uhg."userId" = up."userId"
+    JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
     WHERE uhg."hangoutGroupRole" = 'MEMBER'
       AND up.city IS NOT NULL
       AND up.city != ''
@@ -67,7 +69,7 @@ export async function getMembersByLocation(pool, { provinces = [], cities = [], 
         COUNT(DISTINCT uhg."hangoutGroupId") AS groups_joined,
         STRING_AGG(DISTINCT hg.name, ', ' ORDER BY hg.name) AS group_names
       FROM "UserHangoutGroup" uhg
-      JOIN "HangoutGroup" hg ON hg.id = uhg."hangoutGroupId"
+      JOIN v_eligible_hangout_groups hg ON hg.id = uhg."hangoutGroupId"
       WHERE uhg."hangoutGroupRole" = 'MEMBER'
       GROUP BY uhg."userId"
     ),
@@ -89,6 +91,7 @@ export async function getMembersByLocation(pool, { provinces = [], cities = [], 
     FROM "User" u
     JOIN "UserProfile" up ON up."userId" = u.id
     JOIN "UserHangoutGroup" uhg ON uhg."userId" = u.id AND uhg."hangoutGroupRole" = 'MEMBER'
+    JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
     LEFT JOIN member_groups mg ON mg."userId" = u.id
     LEFT JOIN became_facilitator bf ON bf."userId" = u.id
     WHERE 1=1

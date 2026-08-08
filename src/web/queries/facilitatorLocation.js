@@ -32,6 +32,7 @@ export async function getProvinces(pool) {
     SELECT DISTINCT up.province
     FROM "UserProfile" up
     JOIN "UserHangoutGroup" uhg ON uhg."userId" = up."userId"
+    JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
     WHERE uhg."hangoutGroupRole" = 'FACILITATOR'
       AND up.province IS NOT NULL
       AND up.province != ''
@@ -52,6 +53,7 @@ export async function getCities(pool, provinces = []) {
     SELECT DISTINCT up.city, up.province
     FROM "UserProfile" up
     JOIN "UserHangoutGroup" uhg ON uhg."userId" = up."userId"
+    JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
     WHERE uhg."hangoutGroupRole" = 'FACILITATOR'
       AND up.city IS NOT NULL
       AND up.city != ''
@@ -72,6 +74,7 @@ export async function getFacilitatorsByLocation(pool, { provinces = [], cities =
         COUNT(DISTINCT uhg."hangoutGroupId") AS groups_facilitated,
         COUNT(DISTINCT CASE WHEN uhg2."hangoutGroupRole" = 'MEMBER' THEN uhg2."userId" END) AS member_count
       FROM "UserHangoutGroup" uhg
+      JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
       LEFT JOIN "UserHangoutGroup" uhg2
         ON uhg2."hangoutGroupId" = uhg."hangoutGroupId"
         AND uhg2."hangoutGroupRole" = 'MEMBER'
@@ -100,6 +103,7 @@ export async function getFacilitatorsByLocation(pool, { provinces = [], cities =
     FROM "User" u
     JOIN "UserProfile" up ON up."userId" = u.id
     JOIN "UserHangoutGroup" uhg ON uhg."userId" = u.id AND uhg."hangoutGroupRole" = 'FACILITATOR'
+    JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
     LEFT JOIN facilitator_groups fg ON fg."userId" = u.id
     LEFT JOIN alumni_check ac ON ac."userId" = u.id
     WHERE 1=1
@@ -141,6 +145,7 @@ export async function getFacilitatorCountByLocation(pool, { provinces = [], citi
       FROM "User" u
       JOIN "UserProfile" up ON up."userId" = u.id
       JOIN "UserHangoutGroup" uhg ON uhg."userId" = u.id AND uhg."hangoutGroupRole" = 'FACILITATOR'
+      JOIN v_eligible_hangout_groups eligible ON eligible.id = uhg."hangoutGroupId"
       LEFT JOIN alumni_check ac ON ac."userId" = u.id
       LEFT JOIN active_facilitators af ON af.facilitator_id = u.id
       WHERE 1=1

@@ -15,7 +15,7 @@ export async function getMemberFlow(pool, dateFrom = null, dateTo = null) {
         uhg."joinedAt",
         uhg."hangoutGroupId"
       FROM "UserHangoutGroup" uhg
-      JOIN "HangoutGroup" hg ON uhg."hangoutGroupId" = hg.id
+      JOIN v_eligible_hangout_groups hg ON uhg."hangoutGroupId" = hg.id
       JOIN "Hangout" h ON hg."hangoutId" = h.id
       JOIN course_config cc ON h.name = cc.course_name
       WHERE uhg."hangoutGroupRole" = 'MEMBER'
@@ -135,7 +135,7 @@ export async function getMemberProgressionStats(pool, dateFrom = null, dateTo = 
         uhg."joinedAt",
         uhg."hangoutGroupId"
       FROM "UserHangoutGroup" uhg
-      JOIN "HangoutGroup" hg ON uhg."hangoutGroupId" = hg.id
+      JOIN v_eligible_hangout_groups hg ON uhg."hangoutGroupId" = hg.id
       JOIN "Hangout" h ON hg."hangoutId" = h.id
       JOIN course_config cc ON h.name = cc.course_name
       WHERE uhg."hangoutGroupRole" = 'MEMBER'

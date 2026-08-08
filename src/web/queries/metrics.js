@@ -123,7 +123,9 @@ export async function getMonthlyMetricsByOrigin(pool, dateFrom = null, dateTo = 
       SELECT
         COALESCE($1::timestamp, MIN("attendedAt")) AS start_date,
         COALESCE($2::timestamp, MAX("attendedAt")) AS end_date
-      FROM "UserHangoutGroupAttendance"
+      FROM "UserHangoutGroupAttendance" attendance
+      JOIN v_eligible_hangout_groups eligible
+        ON eligible.id = attendance."hangoutGroupId"
     ),
     group_origin AS (
       SELECT
@@ -157,7 +159,20 @@ export async function getMonthlyMetricsByOrigin(pool, dateFrom = null, dateTo = 
 // Monthly new promoted facilitators + cumulative total
 export async function getPromotionTimeline(pool, dateFrom = null, dateTo = null) {
   const result = await pool.query(`
-    WITH promoted_months AS (
+    WITH bounds AS (
+      SELECT
+        DATE_TRUNC('month', COALESCE($1::timestamp, MIN(first_facilitator_date))) AS start_month,
+        DATE_TRUNC('month', COALESCE($2::timestamp, NOW())) AS end_month
+      FROM v_facilitator_stats
+      WHERE is_alumni = TRUE
+        AND first_facilitator_date IS NOT NULL
+    ),
+    months AS (
+      SELECT GENERATE_SERIES(start_month, end_month, '1 month'::interval) AS month
+      FROM bounds
+      WHERE start_month IS NOT NULL AND end_month IS NOT NULL
+    ),
+    promoted_months AS (
       SELECT
         DATE_TRUNC('month', first_facilitator_date) AS month,
         COUNT(*) AS new_promoted
@@ -169,11 +184,14 @@ export async function getPromotionTimeline(pool, dateFrom = null, dateTo = null)
       GROUP BY DATE_TRUNC('month', first_facilitator_date)
     )
     SELECT
-      month,
-      new_promoted,
-      SUM(new_promoted) OVER (ORDER BY month) AS cumulative_promoted
-    FROM promoted_months
-    ORDER BY month ASC
+      months.month,
+      COALESCE(promoted_months.new_promoted, 0) AS new_promoted,
+      SUM(COALESCE(promoted_months.new_promoted, 0)) OVER (
+        ORDER BY months.month
+      ) AS cumulative_promoted
+    FROM months
+    LEFT JOIN promoted_months ON promoted_months.month = months.month
+    ORDER BY months.month ASC
   `, [dateFrom, dateTo]);
 
   return result.rows;
@@ -185,7 +203,7 @@ export async function getFacilitatorActivityRate(pool, dateFrom = null, dateTo =
     WITH months AS (
       SELECT generate_series(
         DATE_TRUNC('month', COALESCE($1::timestamp, '2025-03-01')),
-        DATE_TRUNC('month', COALESCE($2::timestamp, '2026-03-31')),
+        DATE_TRUNC('month', COALESCE($2::timestamp, NOW())),
         '1 month'
       ) AS month
     ),
@@ -209,7 +227,7 @@ export async function getFacilitatorActivityRate(pool, dateFrom = null, dateTo =
       LEFT JOIN v_facilitator_stats fs ON fs.facilitator_id = gs.facilitator_id
       WHERE gs.facilitator_id IS NOT NULL
         AND a."attendedAt" >= COALESCE($1::timestamp, '2025-03-01')
-        AND a."attendedAt" <= COALESCE($2::timestamp, '2026-03-31')
+        AND a."attendedAt" <= COALESCE($2::timestamp, NOW())
       GROUP BY DATE_TRUNC('month', a."attendedAt")
     )
     SELECT
@@ -233,7 +251,9 @@ export async function getMonthlyMetrics(pool, dateFrom = null, dateTo = null) {
       SELECT
         COALESCE($1::timestamp, MIN("attendedAt")) AS start_date,
         COALESCE($2::timestamp, MAX("attendedAt")) AS end_date
-      FROM "UserHangoutGroupAttendance"
+      FROM "UserHangoutGroupAttendance" attendance
+      JOIN v_eligible_hangout_groups eligible
+        ON eligible.id = attendance."hangoutGroupId"
     ),
     monthly_meetings AS (
       SELECT
@@ -242,6 +262,8 @@ export async function getMonthlyMetrics(pool, dateFrom = null, dateTo = null) {
         COUNT(DISTINCT a."attendedAt"::date) AS total_meetings,
         COUNT(DISTINCT a."userId") AS active_members
       FROM "UserHangoutGroupAttendance" a
+      JOIN v_eligible_hangout_groups eligible
+        ON eligible.id = a."hangoutGroupId"
       CROSS JOIN date_range dr
       WHERE a."attendedAt" >= dr.start_date
         AND a."attendedAt" <= dr.end_date
@@ -251,7 +273,7 @@ export async function getMonthlyMetrics(pool, dateFrom = null, dateTo = null) {
       SELECT
         DATE_TRUNC('month', hg."createdAt") AS month,
         COUNT(*) AS new_groups
-      FROM "HangoutGroup" hg
+      FROM v_eligible_hangout_groups hg
       CROSS JOIN date_range dr
       WHERE hg."createdAt" >= dr.start_date
         AND hg."createdAt" <= dr.end_date
@@ -263,6 +285,8 @@ export async function getMonthlyMetrics(pool, dateFrom = null, dateTo = null) {
         COUNT(*) FILTER (WHERE uhg."hangoutGroupRole" = 'MEMBER') AS new_members,
         COUNT(*) FILTER (WHERE uhg."hangoutGroupRole" = 'FACILITATOR') AS new_facilitators
       FROM "UserHangoutGroup" uhg
+      JOIN v_eligible_hangout_groups eligible
+        ON eligible.id = uhg."hangoutGroupId"
       CROSS JOIN date_range dr
       WHERE uhg."joinedAt" >= dr.start_date
         AND uhg."joinedAt" <= dr.end_date

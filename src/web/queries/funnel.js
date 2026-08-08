@@ -111,7 +111,7 @@ export async function getFunnelTimeline(pool, dateFrom = null, dateTo = null) {
         gp.max_episode_reached,
         cc.max_episodes,
         gs.computed_status
-      FROM "HangoutGroup" hg
+      FROM v_eligible_hangout_groups hg
       LEFT JOIN "Hangout" h ON hg."hangoutId" = h.id
       LEFT JOIN course_config cc ON h.name = cc.course_name
       LEFT JOIN v_group_progress gp ON hg.id = gp.group_id

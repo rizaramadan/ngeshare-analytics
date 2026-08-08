@@ -7,11 +7,14 @@ function parseConnectionUrl(url) {
     const parsed = new URL(url);
     return {
       host: parsed.hostname,
-      port: parseInt(parsed.port || '5432', 10),
+      port: parseInt(parsed.port || "5432", 10),
       database: parsed.pathname.slice(1), // remove leading /
       user: parsed.username,
       password: decodeURIComponent(parsed.password),
-      ssl: parsed.searchParams.get('sslmode') !== 'disable' ? { rejectUnauthorized: false } : false,
+      ssl:
+        parsed.searchParams.get("sslmode") !== "disable"
+          ? { rejectUnauthorized: false }
+          : false,
     };
   } catch {
     return null;
@@ -31,11 +34,14 @@ export const sourceConfig = sourceFromUrl
     }
   : {
       host: process.env.SOURCE_DB_HOST,
-      port: parseInt(process.env.SOURCE_DB_PORT || '5432', 10),
+      port: parseInt(process.env.SOURCE_DB_PORT || "5432", 10),
       database: process.env.SOURCE_DB_NAME,
       user: process.env.SOURCE_DB_USER,
       password: process.env.SOURCE_DB_PASSWORD,
-      ssl: process.env.SOURCE_DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      ssl:
+        process.env.SOURCE_DB_SSL === "true"
+          ? { rejectUnauthorized: false }
+          : false,
       max: 5,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
@@ -52,11 +58,11 @@ export const destConfig = destFromUrl
       connectionTimeoutMillis: 5000,
     }
   : {
-      host: process.env.DEST_DB_HOST || 'localhost',
-      port: parseInt(process.env.DEST_DB_PORT || '5433', 10),
-      database: process.env.DEST_DB_NAME || 'ngeshare_analytics',
-      user: process.env.DEST_DB_USER || 'ngeshare',
-      password: process.env.DEST_DB_PASSWORD || 'ngeshare_local_password',
+      host: process.env.DEST_DB_HOST || "localhost",
+      port: parseInt(process.env.DEST_DB_PORT || "5432", 10),
+      database: process.env.DEST_DB_NAME || "ngeshare_local",
+      user: process.env.DEST_DB_USER || "postgreuser",
+      password: process.env.DEST_DB_PASSWORD || "mainmain",
       ssl: false,
       max: 10,
       idleTimeoutMillis: 30000,
